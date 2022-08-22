@@ -1,0 +1,5 @@
+track type=bedDetail ionVersion=4.0 name=Oncomine_Focus_Designed description=Amplicon_Insert_Oncomine_Focus db=hg19 fileVersion=20190207
+exon_4_5_6_7	0	273	exon_4
+exon_4_5_6_7	274	358	exon_5
+exon_4_5_6_7	359	536	exon_6
+exon_4_5_6_7	537	721	exon_7

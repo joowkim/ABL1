@@ -1,0 +1,2 @@
+track type=bedDetail ionVersion=4.0 name=Oncomine_Focus_Designed description=Amplicon_Insert_Oncomine_Focus db=hg19 fileVersion=20190207
+chr7	140453102	140453221	BRAF_2	0	+	.	GENE_ID=BRAF;PURPOSE=CNV,Hotspot;CNV_ID=BRAF;CNV_HS=1

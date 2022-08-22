@@ -1,0 +1,34 @@
+ref_modi:
+  # path/to/reference/gDNA.fasta
+  sequence:       "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
+  fai:            "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
+  # path/to/bwa/index/directory
+  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7"
+#  index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
+  # path/to/gtf/file/with/transcripts.gtf
+  annotation:     "/media/hd1/jkim/genome/ABL1_NM005157.4/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
+  star_index:     "/media/hd1/jkim/genome/index/ucsc/hg19/star"
+
+ref_full:
+  sequence:       "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa"
+  fai:            "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa.fai"
+  # path/to/bwa/index/directory
+  index:          "/media/hd1/jkim/genome/index/ucsc/hg19/bwa/hg19"
+  # path/to/gtf/file/with/transcripts.gtf
+  annotation:     "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
+
+bwa:
+  cmd: ""
+
+samtools:
+  sort: ""
+  index: ""
+
+fastqc:
+  cmd: ""
+
+multiqc:
+  cmd: ""
+
+qualimap:
+  cmd: ""

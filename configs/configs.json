@@ -1,0 +1,25 @@
+{
+      "Machine":{
+                "server":{
+			  "pipeline":"clonality",
+                          "Repository": "/media/hd1/Repository",
+                          "Data": "/media/hd2/Data",
+                          "Masterlist":"/media/uhtl/pipeline/Repository/Cancer/CancerDB.db",
+                          "InternalDB":"/media/uhtl/pipeline/Repository/clonality/cllDB.db",
+			  "sdrive":"/media/hd1/Repository/Sdrivemount/UHTL",
+			  "CR_usrdef":"/media/hd1/Repository/Cancer/usrdef",
+			  "packages":"/media/hd1/Pipelines/myenv/clonality"
+			
+                  }
+      },
+      "local":{
+	      "pipeline":"clonality",
+              "Repository": "/media/hd1/Repository",
+              "Data": "/media/hd2/Data",
+              "Masterlist":"/media/hd1/Repository/Cancer/CancerDB.db",
+              "InternalDB":"/media/hd1/Repository/clonality/cllDB.db",
+	      "sdrive":"/media/hd2/Data",
+	      "CR_usrdef":"/media/hd1/Repository/Cancer/usrdef",
+	      "packages":"/media/hd1/Pipelines/myenv/clonality"
+      }
+}
