@@ -32,3 +32,5 @@ multiqc:
 
 qualimap:
   cmd: ""
+
+picard: "/usr/local/bin/picard.jar"

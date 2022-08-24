@@ -1,4 +1,4 @@
-# XXX pipeline
+# Exon 4 to 7 of ABL1 variant pipeline
 
 ## Description
 
@@ -16,15 +16,15 @@ How to install the required tools below?? `conda? docker?`
 
 `fastqc`
 
-`trimgalore`
-
-`fastx-multx`
-
 `samtools`
 
 `bwa-mem`
 
-`bowtie2`
+`pollux`
+
+`picard`
+
+`GATK`
 
 ## Input
 
