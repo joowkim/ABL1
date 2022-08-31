@@ -1,50 +1,73 @@
-# Exon 4 to 7 of ABL1 variant pipeline
+# Exon 4 to 7 of ABL1 variant calling workflow
 
 ## Description
-
-## Requirement
-
-How to install the required tools below?? `conda? docker?`
-
-`Python version >= 3.7`
-
-`bedtools`
-
-`pandas`
-
-`snakemake`
-
-`fastqc`
-
-`samtools`
-
-`bwa-mem`
-
-`pollux`
-
-`picard`
-
-`GATK`
-
-## Input
-
-## Output
-
-general description of the pipeline done.
+Identify vairants in exon 4 to 7 of ABL1.
 
 ----
 
-# SOP
+## Overview of the workflow
+
+1. Demultiplex
+2. QC steps
+   - run fastqc on sample.fastq files
+   - trim adapter sequences using cutadapt and discard reads are shorter than 100 bp.
+   - <del> filtering out low quality of reads (discard reads having avg quality score <= 20)
+3. Correct Homopolymer errors using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6)
+4. Align reads to the reference genome (exon 4 to 7 of ABL1)
+5. Filter out reads have supplementary alignment in bam files and MAPQ >= 20 - keep only primary alignment reads
+6. Call variants using freebayes, bcftools and gatk (without marking duplicate reads steps)
+   - Most of reads are marked as duplicate reads using `picard`. So the workflow will skip the marking duplicate reads step. 
+7. Get coverage summary and a coverage plot
 
 ----
 
-## Build reference genome
+### Comparison of quality trimmed/no trimmed reads
+There are two gaps that no reads mapped to the reference genome in the trimmed reads panel in IGV. On the other hand, when we didn't do quality trimming, all of the targeted regions (exon 4 to 7) were covered. 
+
+![image info](./img_for_markdown/no_trim_vs_trimmed.png)
+
+### Correction of short indel errors
+We can see that there are many short indels in IGV. Since Ion torrent machines are suject to short indel errors (homoploymer errors), we performed sequence error corection using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6).
+
+![image info](./img_for_markdown/comparison-pollux.png)
+
+### Comparison of Miseq and Ion torrent sequencing data using public data
+Public data obtained from [Performance comparison of second-and third-generation sequencers using a bacteria genome with two chromosomes](http://www.biomedcentral.com/1471-2164/15/699). 
+
+The researchers sequenced `vibrio parahaemolyticus RIMD2210633` using a Miseq and Ion torrent machine.
+
+This is a screen shot of IGV showing Miseq reads alignment, Ion torrent reads alignment without error correction and Ion torrent reads alignment with error correction in IGV respectively.
+
+![image_info](./img_for_markdown/ASM19-miseq-ion-torrent-pollux.png)
+
+[sequencing data link](https://www.ncbi.nlm.nih.gov/sra?linkname=bioproject_sra_all&from_uid=259437)
+
+Assuming Illumina sequencers are more accurate and robust to homopolymer errors, there are very few indes identified in miseq data. But there are many short indels detected in Ion torrent data.
+
+`Compared to the Illumina platforms, the Ion Proton platform has a high ratio of false positives in the identification of small insertion and
+deletion mutations (indel) but shows high accuracy in the identification of single nucleotide variant (SNV).`
+
+[SHIRO F, et al, 2017: Single nucleotide variant sequencing errors in whole exome sequencing using the Ion Proton System](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5492560/)
+
+### Homoploymer definition
+Stretches of the same nucleotide sequence, also known as homopolymer stretches.
+
+from Thermo fisher PGM manual
+
+----
+## How to run the pipeline
+
+This is a dry run. `snakemake -npr`. If the standard output looks expected, run `snakemake -j 1 # of job`.
+
+----
+
+## Build the reference genome
 
 ### Object
 Build a reference genome only having exon 4~7 from ABL1 gene
 
 ### How to build the reference genome
-1. get hg19.fa and correspond gtf - refGene_05_14.2020.txt
+1. get `hg19.fa` and correspond gtf - `refGene_05_14.2020.txt`
 
    - `md5sum refGene_05_14.2020.txt` is `7d87863aa84702725c44af5302708f47`
    - `md5sum hg19.fa` is `d6851f9f4537ff4e9beb5b7a08b89230`
@@ -91,3 +114,37 @@ When you look at those loci in IGV, +1 should be added to the exon_start.
 | chr9| 133747515  | 133747600 | 5        |
 | chr9| 133748246  | 133748424 | 6        |
 | chr9| 133750254  | 133750439 | 7        |
+
+Exon location in the ref_fasta.
+
+| exon_name | start | end |
+| --------- | ----- | --- |
+| exon4     | 1     | 273 |
+| exon5     | 274   | 358 |
+| exon6     | 359   | 536 |
+| exon7     | 537   | 721 |
+
+
+## Requirement
+
+How to install the required tools below?? `conda? docker?`
+
+`Python version >= 3.7`
+
+`bedtools`
+
+`pandas`
+
+`snakemake`
+
+`fastqc`
+
+`samtools`
+
+`bwa-mem`
+
+`pollux`
+
+`picard`
+
+`GATK`

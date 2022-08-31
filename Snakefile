@@ -30,7 +30,8 @@ rule all:
         expand("analysis/get_coverage/{sample}.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.png",sample=get_sample_name()),
-        expand("analysis/gatk/{sample}.vcf", sample=get_sample_name()),
+        expand("analysis/haplotype_caller/{sample}.vcf", sample=get_sample_name()),
+        expand("analysis/mutect2/{sample}.vcf", sample=get_sample_name()),
 # expand("analysis/09.samtools/{sample}.bam", sample=get_sample_name()),
 
 
@@ -135,6 +136,20 @@ rule bwa:
         """
 
 
+rule samtools_stat:
+    input:
+        rules.bwa.output.outbam,
+    output:
+        out_stats="analysis/samtools_stats/{sample}.stats",
+        out_flagstats="analysis/samtools_stats/{sample}.flagstat.txt",
+    threads: 2
+    shell:
+        """
+        samtools stats {input} > {output.out_stats}
+        samtools flagstat -O tsv {input} > {output.out_flagstats}
+        """
+
+
 rule samtools:
     """
     Filter out supplementary alignment reads
@@ -159,13 +174,13 @@ rule samtools:
         mem_gb=4
     shell:
         """
-               
         samtools view --expr '![SA]' -O BAM -o {output.tempbam}  {input.bam}
         
         # If you want to keep uniquely-mapped reads + MAPQ > 20
-        samtools sort -O BAM {output.tempbam} | samtools view -h -F 256 -q 20 -o {output.outbam} -O BAM
+        # -F 2308
+        # read unmapped, not primary and supplementary
+        samtools sort -O BAM {output.tempbam} | samtools view -h -F 2308 -q 20 -o {output.outbam} -O BAM
     
-
         samtools index {output.outbam}
         samtools idxstats {output.outbam} > {output.idxstat}
         """
@@ -223,13 +238,29 @@ rule gatk_haplotype_caller:
     input:
         inbam=rules.samtools.output.outbam,
     output:
-        outvcf="analysis/gatk/{sample}.vcf",
+        outvcf="analysis/haplotype_caller/{sample}.vcf",
     params:
         #option="-Xmx4g -XX:ParallelGCThreads=1",
         ref_fa=config["ref_modi"]["sequence"],
     shell:
         """
         gatk HaplotypeCaller -R {params.ref_fa} -I {input.inbam} -O {output.outvcf}
+        """
+
+
+rule gatk_mutect2:
+    """
+    Run gatk mutect2
+    """
+    input:
+        inbam=rules.samtools.output.outbam,
+    output:
+        outvcf="analysis/mutect2/{sample}.vcf",
+    params:
+        ref_fa=config["ref_modi"]["sequence"],
+    shell:
+        """
+          gatk Mutect2 -R {params.ref_fa} -I {input.inbam}    -O {output.outvcf}
         """
 
 
@@ -247,6 +278,8 @@ rule multiqc:
         # expand("analysis/samtools/{sample}.flagstats.tsv",sample=get_sample_name()),
         expand("analysis/align_metrics/{sample}.align.metrics.txt", sample=get_sample_name()),
         expand("logs/mark_dup/{sample}.o", sample=get_sample_name()),
+        expand("analysis/samtools_stats/{sample}.stats", sample=get_sample_name()),
+        # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
     output:
         "analysis/multiqc/multiqc_report.html",
     log:
