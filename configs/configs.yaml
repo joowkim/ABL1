@@ -17,6 +17,14 @@ ref_full:
   # path/to/gtf/file/with/transcripts.gtf
   annotation:     "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
 
+ref_genbank:
+  sequence: "/home/jaykim/tmp/ref_test/genbank/NM_005157.4.gb.fasta"
+  fai: "/home/jaykim/tmp/ref_test/genbank/NM_005157.4.gb.fasta.fai"
+  index: "/home/jaykim/tmp/ref_test/genbank/bwa-index/NM_005157.4.gb"
+
+bowtie2:
+  path: "/usr/local/bin/bowtie2"
+
 bwa:
   cmd: ""
 
@@ -34,3 +42,7 @@ qualimap:
   cmd: ""
 
 picard: "/usr/local/bin/picard.jar"
+
+fastq_screen:
+  path: "/home/jaykim/jkim/tools/FastQ-Screen-0.15.2/fastq_screen"
+  conf: "/home/jaykim/jkim/tools/FastQ-Screen-0.15.2/FastQ_Screen_Genomes/fastq_screen.conf"

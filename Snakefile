@@ -30,8 +30,9 @@ rule all:
         expand("analysis/get_coverage/{sample}.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.png",sample=get_sample_name()),
-        expand("analysis/haplotype_caller/{sample}.vcf", sample=get_sample_name()),
-        expand("analysis/mutect2/{sample}.vcf", sample=get_sample_name()),
+        expand("analysis/haplotype_caller/{sample}.vcf",sample=get_sample_name()),
+        expand("analysis/mutect2/{sample}.vcf",sample=get_sample_name()),
+
 # expand("analysis/09.samtools/{sample}.bam", sample=get_sample_name()),
 
 
@@ -61,6 +62,25 @@ rule fastqc:
     shell:
         """
         fastqc --outdir {params.outdir} {input}
+        """
+
+
+rule fastq_screen:
+    input:
+        "00.rawdata/{sample}.fq",
+    output:
+        html="analysis/fastq_screen/{sample}_screen.html",
+        txt="analysis/fastq_screen/{sample}_screen.txt",
+    log:
+        "logs/fastq_screen/{sample}.log",
+    params:
+        fastq_screen=config["fastq_screen"]["path"],
+        conf=config["fastq_screen"]["conf"],
+        bowtie2=config["bowtie2"]["path"],
+    threads: 2
+    shell:
+        """
+        {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {input} 2> {log}
         """
 
 
@@ -120,7 +140,7 @@ rule bwa:
         idxstat="analysis/bwamem/{sample}.bam.idxstat",
     params:
         prefix="{sample}",
-        idx=config['ref_modi']['index'],
+        idx=config['ref_genbank']['index'],
     log:
         stdout="logs/bwamem/{sample}.o",
         stderr="logs/bwamem/{sample}.e",
@@ -196,7 +216,7 @@ rule get_align_metrics:
         metrics="analysis/align_metrics/{sample}.align.metrics.txt",
     params:
         picard=config["picard"],
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_genbank"]["sequence"],
     shell:
         """
         java -jar {params.picard} CollectAlignmentSummaryMetrics         I={input.inbam}         R={params.ref_fa}          O={output.metrics}         
@@ -221,7 +241,7 @@ rule mark_dups:
         err="logs/mark_dup/{sample}.e"
     params:
         picard=config["picard"],
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_genbank"]["sequence"],
         tmp_dir="/tmp",
     shell:
         #TAGGING_POLICY=All
@@ -241,7 +261,7 @@ rule gatk_haplotype_caller:
         outvcf="analysis/haplotype_caller/{sample}.vcf",
     params:
         #option="-Xmx4g -XX:ParallelGCThreads=1",
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_genbank"]["sequence"],
     shell:
         """
         gatk HaplotypeCaller -R {params.ref_fa} -I {input.inbam} -O {output.outvcf}
@@ -257,7 +277,7 @@ rule gatk_mutect2:
     output:
         outvcf="analysis/mutect2/{sample}.vcf",
     params:
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_genbank"]["sequence"],
     shell:
         """
           gatk Mutect2 -R {params.ref_fa} -I {input.inbam}    -O {output.outvcf}
@@ -276,9 +296,10 @@ rule multiqc:
         # expand("analysis/samtools/{sample}.bam.idxstat",sample=get_sample_name()),
         # expand("analysis/fastp/{sample}.fastp.json",sample=get_sample_name()),
         # expand("analysis/samtools/{sample}.flagstats.tsv",sample=get_sample_name()),
-        expand("analysis/align_metrics/{sample}.align.metrics.txt", sample=get_sample_name()),
-        expand("logs/mark_dup/{sample}.o", sample=get_sample_name()),
-        expand("analysis/samtools_stats/{sample}.stats", sample=get_sample_name()),
+        # expand("analysis/align_metrics/{sample}.align.metrics.txt",sample=get_sample_name()),
+        # expand("logs/mark_dup/{sample}.o",sample=get_sample_name()),
+        expand("analysis/samtools_stats/{sample}.stats",sample=get_sample_name()),
+        # expand("analysis/fastq_screen/{sample}_screen.txt",sample=get_sample_name()),
         # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
     output:
         "analysis/multiqc/multiqc_report.html",
@@ -306,7 +327,7 @@ rule bcftools:
     output:
         outvcf="analysis/bcftools/{sample}.vcf"
     params:
-        ref_fa=config['ref_modi']['sequence'],
+        ref_fa=config['ref_genbank']['sequence'],
     shell:
         """
         bcftools mpileup -f {params.ref_fa} {input.inbam} | bcftools call -mv -Ov -o {output.outvcf}
@@ -322,7 +343,7 @@ rule freebayes:
     output:
         outvcf="analysis/freebayes/{sample}.vcf"
     params:
-        ref_fa=config['ref_modi']['sequence'],
+        ref_fa=config['ref_genbank']['sequence'],
     shell:
         """
         freebayes -f {params.ref_fa} -C 10 {input.inbam} > {output.outvcf}

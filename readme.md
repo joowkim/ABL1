@@ -15,21 +15,21 @@ Identify vairants in exon 4 to 7 of ABL1.
 3. Correct Homopolymer errors using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6)
 4. Align reads to the reference genome (exon 4 to 7 of ABL1)
 5. Filter out reads have supplementary alignment in bam files and MAPQ >= 20 - keep only primary alignment reads
-6. Call variants using freebayes, bcftools and gatk (without marking duplicate reads steps)
+6. Call variants using freebayes, bcftools and GATK (without marking duplicate reads steps and BSQR)
    - Most of reads are marked as duplicate reads using `picard`. So the workflow will skip the marking duplicate reads step. 
 7. Get coverage summary and a coverage plot
 
 ----
 
 ### Comparison of quality trimmed/no trimmed reads
-There are two gaps that no reads mapped to the reference genome in the trimmed reads panel in IGV. On the other hand, when we didn't do quality trimming, all of the targeted regions (exon 4 to 7) were covered. 
+There are two gaps that no reads mapped to the reference genome in the first track in IGV. On the other hand, when we didn't do quality trimming, all of the targeted regions (exon 4 to 7) were covered. 
 
-![image info](./img_for_markdown/no_trim_vs_trimmed.png)
+![Trimmed reads and no trimmed reads respectively](./img_for_markdown/no_trim_vs_trimmed.png)
 
 ### Correction of short indel errors
-We can see that there are many short indels in IGV. Since Ion torrent machines are suject to short indel errors (homoploymer errors), we performed sequence error corection using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6).
+We can see that there are many short indels in the first track in IGV. Since Ion torrent machines are subject to short indel errors (homoploymer errors), we performed sequence error correction using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6).
 
-![image info](./img_for_markdown/comparison-pollux.png)
+![No error correction reads and error corrected reads respectively](./img_for_markdown/comparison-pollux.png)
 
 ### Comparison of Miseq and Ion torrent sequencing data using public data
 Public data obtained from [Performance comparison of second-and third-generation sequencers using a bacteria genome with two chromosomes](http://www.biomedcentral.com/1471-2164/15/699). 
@@ -38,11 +38,11 @@ The researchers sequenced `vibrio parahaemolyticus RIMD2210633` using a Miseq an
 
 This is a screen shot of IGV showing Miseq reads alignment, Ion torrent reads alignment without error correction and Ion torrent reads alignment with error correction in IGV respectively.
 
-![image_info](./img_for_markdown/ASM19-miseq-ion-torrent-pollux.png)
+![Miseq data, Ion torrent without error correction and Ion torrent error corrected reads ](./img_for_markdown/ASM19-miseq-ion-torrent-pollux.png)
 
 [sequencing data link](https://www.ncbi.nlm.nih.gov/sra?linkname=bioproject_sra_all&from_uid=259437)
 
-Assuming Illumina sequencers are more accurate and robust to homopolymer errors, there are very few indes identified in miseq data. But there are many short indels detected in Ion torrent data.
+Assuming Illumina sequencers are more accurate and robust to homopolymer errors, there are very few indels seen in miseq data. But there are many short indels detected in Ion torrent data.
 
 `Compared to the Illumina platforms, the Ion Proton platform has a high ratio of false positives in the identification of small insertion and
 deletion mutations (indel) but shows high accuracy in the identification of single nucleotide variant (SNV).`
@@ -55,6 +55,7 @@ Stretches of the same nucleotide sequence, also known as homopolymer stretches.
 from Thermo fisher PGM manual
 
 ----
+
 ## How to run the pipeline
 
 This is a dry run. `snakemake -npr`. If the standard output looks expected, run `snakemake -j 1 # of job`.
