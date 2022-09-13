@@ -19,6 +19,13 @@ Identify vairants in exon 4 to 7 of ABL1.
    - Most of reads are marked as duplicate reads using `picard`. So the workflow will skip the marking duplicate reads step. 
 7. Get coverage summary and a coverage plot
 
+
+Note, if you'd like to see the DAG of the job scheduling, the command below will produce a visual of the jobs for you.
+
+```snakemake --dag | dot -Tpng > workflow.png```
+
+![image_info](./img_for_markdown/workflow.png)
+
 ----
 
 ### Comparison of quality trimmed/no trimmed reads

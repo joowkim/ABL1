@@ -19,26 +19,26 @@ ref_full:
   annotation:     "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
 
 bwa:
-  "/home/jaykim/jkim/singularity/bwa-v0.7.17.sif"
+  "/home/jaykim/jkim/singularity/bwa_v0.7.17_cv1.sif"
 #  "/usr/local/bin/bwa"
 
 samtools:
-  "/home/jaykim/jkim/singularity/samtools-1.15.1.sif"
+  "/home/jaykim/jkim/singularity/samtools_1.15.1--h1170115_0.sif"
 
 fastqc:
-  "/home/jaykim/jkim/singularity/fastqc.v0.11.9.sif"
+  "/home/jaykim/jkim/singularity/fastqc_v0.11.9_cv8.sif"
 
 multiqc:
-  "/home/jaykim/jkim/singularity/multiqc-1.12.sif"
+  "/home/jaykim/jkim/singularity/multiqc_1.12--pyhdfd78af_0.sif"
 
 cutadapt:
-  "/home/jaykim/jkim/singularity/cutadapt.4.1.sif"
+  "/home/jaykim/jkim/singularity/cutadapt_4.1--py38hbff2b2d_1.sif"
 
 picard:
   "/usr/local/bin/picard.jar"
 
 gatk4:
-  "/home/jaykim/jkim/singularity"
+  "/home/jaykim/jkim/singularity/gatk4_4.2.4.0--hdfd78af_0.sif"
 
 fastq_screen:
   path: "/home/jaykim/jkim/tools/FastQ-Screen-0.15.2/fastq_screen"
@@ -46,7 +46,7 @@ fastq_screen:
   sif: "/home/jaykim/jkim/singularity/fastq-screen-0.14.0.sif"
 
 star:
-  "/home/jaykim/jkim/singularity/star-2.7.10a.sif"
+  "/home/jaykim/jkim/singularity/star_2.7.10a--h9ee0642_0.sif"
 
 bowtie2:
   path: "/usr/local/bin/bowtie2"
@@ -55,10 +55,10 @@ bcftools:
   "/home/jaykim/jkim/singularity/bcftools.1.15.1.sif"
 
 freebayes:
-  "/home/jaykim/jkim/singularity/freebayes-1.3.6.sif"
+  "/home/jaykim/jkim/singularity/freebayes_1.3.6--hb089aa1_0.sif"
 
 fastp:
-  "/home/jaykim/jkim/singularity/fastp-0.23.2.sif"
+  "/home/jaykim/jkim/singularity/fastp_0.23.2--h79da9fb_0.sif"
 
 tidyverse:
-  "/home/jaykim/jkim/singularity/tidyverse.sif"
+  "/home/jaykim/jkim/singularity/tidyverse_latest.sif"
