@@ -3,8 +3,9 @@ ref_modi:
   sequence:       "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
   fai:            "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
   # path/to/bwa/index/directory
-  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7"
-#  index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
+#  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
+  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
+#  bowtie2_index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
   # path/to/gtf/file/with/transcripts.gtf
   annotation:     "/media/hd1/jkim/genome/ABL1_NM005157.4/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
   star_index:     "/media/hd1/jkim/genome/index/ucsc/hg19/star"
@@ -18,19 +19,46 @@ ref_full:
   annotation:     "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
 
 bwa:
-  cmd: ""
+  "/home/jaykim/jkim/singularity/bwa-v0.7.17.sif"
+#  "/usr/local/bin/bwa"
 
 samtools:
-  sort: ""
-  index: ""
+  "/home/jaykim/jkim/singularity/samtools-1.15.1.sif"
 
 fastqc:
-  cmd: ""
+  "/home/jaykim/jkim/singularity/fastqc.v0.11.9.sif"
 
 multiqc:
-  cmd: ""
+  "/home/jaykim/jkim/singularity/multiqc-1.12.sif"
 
-qualimap:
-  cmd: ""
+cutadapt:
+  "/home/jaykim/jkim/singularity/cutadapt.4.1.sif"
 
-picard: "/usr/local/bin/picard.jar"
+picard:
+  "/usr/local/bin/picard.jar"
+
+gatk4:
+  "/home/jaykim/jkim/singularity"
+
+fastq_screen:
+  path: "/home/jaykim/jkim/tools/FastQ-Screen-0.15.2/fastq_screen"
+  conf: "/home/jaykim/jkim/tools/FastQ-Screen-0.15.2/FastQ_Screen_Genomes/fastq_screen.conf"
+  sif: "/home/jaykim/jkim/singularity/fastq-screen-0.14.0.sif"
+
+star:
+  "/home/jaykim/jkim/singularity/star-2.7.10a.sif"
+
+bowtie2:
+  path: "/usr/local/bin/bowtie2"
+
+bcftools:
+  "/home/jaykim/jkim/singularity/bcftools.1.15.1.sif"
+
+freebayes:
+  "/home/jaykim/jkim/singularity/freebayes-1.3.6.sif"
+
+fastp:
+  "/home/jaykim/jkim/singularity/fastp-0.23.2.sif"
+
+tidyverse:
+  "/home/jaykim/jkim/singularity/tidyverse.sif"

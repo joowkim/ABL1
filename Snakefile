@@ -30,8 +30,9 @@ rule all:
         expand("analysis/get_coverage/{sample}.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name()),
         expand("analysis/plot_coverage/{sample}.png",sample=get_sample_name()),
-        expand("analysis/haplotype_caller/{sample}.vcf", sample=get_sample_name()),
-        expand("analysis/mutect2/{sample}.vcf", sample=get_sample_name()),
+        expand("analysis/haplotype_caller/{sample}.vcf",sample=get_sample_name()),
+        expand("analysis/mutect2/{sample}.vcf",sample=get_sample_name()),
+
 # expand("analysis/09.samtools/{sample}.bam", sample=get_sample_name()),
 
 
@@ -58,9 +59,34 @@ rule fastqc:
     threads: 1
     resources:
         mem_gb=8
+    container:
+        config["fastqc"]
+        # "docker://biocontainers/fastqc:v0.11.9_cv8"
     shell:
         """
         fastqc --outdir {params.outdir} {input}
+        """
+
+
+rule fastq_screen:
+    input:
+        "00.rawdata/{sample}.fq",
+    output:
+        html="analysis/fastq_screen/{sample}_screen.html",
+        txt="analysis/fastq_screen/{sample}_screen.txt",
+    log:
+        "logs/fastq_screen/{sample}.log",
+    params:
+        fastq_screen=config["fastq_screen"]["path"],
+        conf=config["fastq_screen"]["conf"],
+        bowtie2=config["bowtie2"]["path"],
+    threads: 2
+    container:
+        config["fastq_screen"]["sif"]
+        # "docker://quay.io/biocontainers/fastq-screen:0.14.0--pl5321hdfd78af_2"
+    shell:
+        """
+        {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {input} 2> {log}
         """
 
 
@@ -76,11 +102,14 @@ rule cutadapt:
         stdout="logs/cutadapt/{sample}.o",
         stderr="logs/cutadapt/{sample}.e",
     params:
-        length="100",
+        length="200",
         adapter="GTAC",
     threads: 4
     resources:
         mem_gb=8
+    container:
+        config["cutadapt"],
+        # "docker://quay.io/biocontainers/cutadapt:4.1--py38hbff2b2d_1"
     shell:
         """
         cutadapt -o {output.trimmed_fq}  --minimum-length {params.length}  -b {params.adapter}  --revcomp {input} > {log.stdout} 2> {log.stderr}
@@ -114,35 +143,60 @@ rule bwa:
     """
     input:
         fq=rules.pollux.output.fqgz,
+        idx=config['ref_modi']['index'],
     output:
-        outbam="analysis/bwamem/{sample}.bam",
-        outbai="analysis/bwamem/{sample}.bam.bai",
-        idxstat="analysis/bwamem/{sample}.bam.idxstat",
+        outsam=temp("analysis/bwamem/{sample}.sam")
     params:
         prefix="{sample}",
-        idx=config['ref_modi']['index'],
+        # idx=config['ref_modi']['index'],
     log:
         stdout="logs/bwamem/{sample}.o",
         stderr="logs/bwamem/{sample}.e",
     threads: 4
     resources:
         mem_gb=20
+    container:
+        config["bwa"],
+        # "docker://biocontainers/bwa:v0.7.17_cv1"
     shell:
         """
-        bwa mem -M -t {threads} -R '@RG\\tID:{params.prefix}\\tLB:{params.prefix}\\tPL:Ion\\tPM:Torren\\tSM:{params.prefix}' {params.idx} {input.fq}  | samtools sort -O BAM -o {output.outbam} > {log.stdout} 2> {log.stderr}
-        
+        bwa mem -M -t {threads} -R '@RG\\tID:{params.prefix}\\tLB:{params.prefix}\\tPL:Ion\\tPM:Torren\\tSM:{params.prefix}' {input.idx} {input.fq} > {output.outsam}  
+        """
+
+rule sam2bam:
+    input:
+        insam=rules.bwa.output.outsam,
+    output:
+        outbam="analysis/bwamem/{sample}.bam",
+        outbai="analysis/bwamem/{sample}.bam.bai",
+        idxstat="analysis/bwamem/{sample}.bam.idxstat",
+    log:
+        stdout="logs/sam2bam/{sample}.o",
+        stderr="logs/sam2bam/{sample}.e",
+    threads: 4
+    resources:
+        mem_gb=20
+    container:
+        config["samtools"],
+    shell:
+        """
+        samtools view -S -b {input.insam} | samtools sort -O BAM -o {output.outbam} 1> {log.stdout} 2> {log.stderr}
         samtools index -@ {threads} {output.outbam}
         samtools idxstats {output.outbam} > {output.idxstat}
         """
 
 
+
 rule samtools_stat:
     input:
-        rules.bwa.output.outbam,
+        rules.sam2bam.output.outbam,
     output:
         out_stats="analysis/samtools_stats/{sample}.stats",
         out_flagstats="analysis/samtools_stats/{sample}.flagstat.txt",
     threads: 2
+    container:
+        config["samtools"],
+        # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
         samtools stats {input} > {output.out_stats}
@@ -155,10 +209,11 @@ rule samtools:
     Filter out supplementary alignment reads
     """
     input:
-        bam=rules.bwa.output.outbam,
-        outbai=rules.bwa.output.outbai,
-        idxstat=rules.bwa.output.idxstat,
+        bam=rules.sam2bam.output.outbam,
+        outbai=rules.sam2bam.output.outbai,
+        idxstat=rules.sam2bam.output.idxstat,
     output:
+        output_coverage_tsv="analysis/plot_coverage/{sample}.coverage.tsv",
         tempbam=temp("analysis/samtools{sample}.temp.bam"),
         outbam=("analysis/samtools/{sample}.bam"),
         idxstat="analysis/samtools/{sample}.bam.idxstat",
@@ -172,6 +227,9 @@ rule samtools:
     threads: 4
     resources:
         mem_gb=4
+    container:
+        config["samtools"],
+        # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
         samtools view --expr '![SA]' -O BAM -o {output.tempbam}  {input.bam}
@@ -183,6 +241,7 @@ rule samtools:
     
         samtools index {output.outbam}
         samtools idxstats {output.outbam} > {output.idxstat}
+        samtools depth {output.outbam} > {output.output_coverage_tsv}
         """
 
 rule get_align_metrics:
@@ -197,6 +256,8 @@ rule get_align_metrics:
     params:
         picard=config["picard"],
         ref_fa=config["ref_modi"]["sequence"],
+    # container:
+    #     "docker://quay.io/biocontainers/picard:2.26.10--hdfd78af_0"
     shell:
         """
         java -jar {params.picard} CollectAlignmentSummaryMetrics         I={input.inbam}         R={params.ref_fa}          O={output.metrics}         
@@ -241,7 +302,9 @@ rule gatk_haplotype_caller:
         outvcf="analysis/haplotype_caller/{sample}.vcf",
     params:
         #option="-Xmx4g -XX:ParallelGCThreads=1",
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_modi"]["index"],
+    # container:
+    #     "docker://quay.io/biocontainers/gatk4:4.2.4.0--hdfd78af_0"
     shell:
         """
         gatk HaplotypeCaller -R {params.ref_fa} -I {input.inbam} -O {output.outvcf}
@@ -257,7 +320,9 @@ rule gatk_mutect2:
     output:
         outvcf="analysis/mutect2/{sample}.vcf",
     params:
-        ref_fa=config["ref_modi"]["sequence"],
+        ref_fa=config["ref_modi"]["index"],
+    # container:
+    #     "docker://quay.io/biocontainers/gatk4:4.2.4.0--hdfd78af_0"
     shell:
         """
           gatk Mutect2 -R {params.ref_fa} -I {input.inbam}    -O {output.outvcf}
@@ -276,9 +341,10 @@ rule multiqc:
         # expand("analysis/samtools/{sample}.bam.idxstat",sample=get_sample_name()),
         # expand("analysis/fastp/{sample}.fastp.json",sample=get_sample_name()),
         # expand("analysis/samtools/{sample}.flagstats.tsv",sample=get_sample_name()),
-        expand("analysis/align_metrics/{sample}.align.metrics.txt", sample=get_sample_name()),
-        expand("logs/mark_dup/{sample}.o", sample=get_sample_name()),
-        expand("analysis/samtools_stats/{sample}.stats", sample=get_sample_name()),
+        # expand("analysis/align_metrics/{sample}.align.metrics.txt",sample=get_sample_name()),
+        # expand("logs/mark_dup/{sample}.o",sample=get_sample_name()),
+        expand("analysis/samtools_stats/{sample}.stats",sample=get_sample_name()),
+        # expand("analysis/fastq_screen/{sample}_screen.txt",sample=get_sample_name()),
         # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
     output:
         "analysis/multiqc/multiqc_report.html",
@@ -288,6 +354,9 @@ rule multiqc:
     threads: 4
     resources:
         mem_gb=100
+    container:
+        config["multiqc"],
+        # "docker://quay.io/biocontainers/multiqc:1.12--pyhdfd78af_0"
     shell:
         """
         multiqc -f {input} \
@@ -306,7 +375,10 @@ rule bcftools:
     output:
         outvcf="analysis/bcftools/{sample}.vcf"
     params:
-        ref_fa=config['ref_modi']['sequence'],
+        ref_fa=config['ref_modi']['index'],
+    container:
+        config['bcftools'],
+        # "docker://quay.io/biocontainers/bcftools:1.15.1--h0ea216a_0"
     shell:
         """
         bcftools mpileup -f {params.ref_fa} {input.inbam} | bcftools call -mv -Ov -o {output.outvcf}
@@ -322,7 +394,10 @@ rule freebayes:
     output:
         outvcf="analysis/freebayes/{sample}.vcf"
     params:
-        ref_fa=config['ref_modi']['sequence'],
+        ref_fa=config['ref_modi']['index'],
+    container:
+        config["freebayes"]
+        # "docker://quay.io/biocontainers/freebayes:1.3.6--hb089aa1_0"
     shell:
         """
         freebayes -f {params.ref_fa} -C 10 {input.inbam} > {output.outvcf}
@@ -349,16 +424,18 @@ rule plot_coverage:
     Run coverage.R
     """
     input:
-        inbam=rules.samtools.output.outbam
+        inbam=rules.samtools.output.outbam,
+        coverage_tsv=rules.samtools.output.output_coverage_tsv,
     output:
-        output_coverage_tsv="analysis/plot_coverage/{sample}.coverage.tsv",
+        # output_coverage_tsv="analysis/plot_coverage/{sample}.coverage.tsv",
         outpng="analysis/plot_coverage/{sample}.png",
     params:
         prefix="analysis/plot_coverage/{sample}"
+    container:
+        config["tidyverse"]
     shell:
         """
-        samtools depth {input.inbam} > {output.output_coverage_tsv}
-        Rscript src/coverage.R {output.output_coverage_tsv} {params.prefix}
+        Rscript src/coverage.R {input.coverage_tsv} {params.prefix}
         """
 
 
@@ -379,6 +456,9 @@ rule fastp:
     threads: 4
     resources:
         mem_gb=8
+    container:
+        config["fastp"],
+        # "docker://quay.io/biocontainers/fastp:0.23.2--h79da9fb_0"
     shell:
         """
         fastp -i {input} -o {output.trimmed_fq_gz} --json {output.outjson} --html {output.outhtml} --thread 3 --adapter_sequence GTAC
@@ -408,6 +488,9 @@ rule STAR:
     resources:
         nodes=1,
         mem_gb=50,
+    container:
+        config["star"],
+        # "docker://quay.io/biocontainers/star:2.7.10a--h9ee0642_0"
     shell:
         """
         STAR \
@@ -434,6 +517,8 @@ rule star_samtools:
     log:
         stdout="logs/star_samtools/{sample}.o",
         stderr="logs/star_samtools/{sample}.e",
+    container:
+        "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
         # If you want to keep uniquely-mapped reads + MAPQ > 20 #
