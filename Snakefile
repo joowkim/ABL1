@@ -61,7 +61,7 @@ rule fastqc:
         mem_gb=8
     container:
         config["fastqc"]
-        # "docker://biocontainers/fastqc:v0.11.9_cv8"
+    # "docker://biocontainers/fastqc:v0.11.9_cv8"
     shell:
         """
         fastqc --outdir {params.outdir} {input}
@@ -83,7 +83,7 @@ rule fastq_screen:
     threads: 2
     container:
         config["fastq_screen"]["sif"]
-        # "docker://quay.io/biocontainers/fastq-screen:0.14.0--pl5321hdfd78af_2"
+    # "docker://quay.io/biocontainers/fastq-screen:0.14.0--pl5321hdfd78af_2"
     shell:
         """
         {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {input} 2> {log}
@@ -109,7 +109,7 @@ rule cutadapt:
         mem_gb=8
     container:
         config["cutadapt"],
-        # "docker://quay.io/biocontainers/cutadapt:4.1--py38hbff2b2d_1"
+    # "docker://quay.io/biocontainers/cutadapt:4.1--py38hbff2b2d_1"
     shell:
         """
         cutadapt -o {output.trimmed_fq}  --minimum-length {params.length}  -b {params.adapter}  --revcomp {input} > {log.stdout} 2> {log.stderr}
@@ -148,7 +148,7 @@ rule bwa:
         outsam=temp("analysis/bwamem/{sample}.sam")
     params:
         prefix="{sample}",
-        # idx=config['ref_modi']['index'],
+    # idx=config['ref_modi']['index'],
     log:
         stdout="logs/bwamem/{sample}.o",
         stderr="logs/bwamem/{sample}.e",
@@ -157,11 +157,12 @@ rule bwa:
         mem_gb=20
     container:
         config["bwa"],
-        # "docker://biocontainers/bwa:v0.7.17_cv1"
+    # "docker://biocontainers/bwa:v0.7.17_cv1"
     shell:
         """
         bwa mem -M -t {threads} -R '@RG\\tID:{params.prefix}\\tLB:{params.prefix}\\tPL:Ion\\tPM:Torren\\tSM:{params.prefix}' {input.idx} {input.fq} > {output.outsam}  
         """
+
 
 rule sam2bam:
     input:
@@ -186,7 +187,6 @@ rule sam2bam:
         """
 
 
-
 rule samtools_stat:
     input:
         rules.sam2bam.output.outbam,
@@ -196,7 +196,7 @@ rule samtools_stat:
     threads: 2
     container:
         config["samtools"],
-        # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
+    # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
         samtools stats {input} > {output.out_stats}
@@ -229,7 +229,7 @@ rule samtools:
         mem_gb=4
     container:
         config["samtools"],
-        # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
+    # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
         samtools view --expr '![SA]' -O BAM -o {output.tempbam}  {input.bam}
@@ -344,8 +344,8 @@ rule multiqc:
         # expand("analysis/align_metrics/{sample}.align.metrics.txt",sample=get_sample_name()),
         # expand("logs/mark_dup/{sample}.o",sample=get_sample_name()),
         expand("analysis/samtools_stats/{sample}.stats",sample=get_sample_name()),
-        # expand("analysis/fastq_screen/{sample}_screen.txt",sample=get_sample_name()),
-        # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
+    # expand("analysis/fastq_screen/{sample}_screen.txt",sample=get_sample_name()),
+    # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
     output:
         "analysis/multiqc/multiqc_report.html",
     log:
@@ -356,7 +356,7 @@ rule multiqc:
         mem_gb=100
     container:
         config["multiqc"],
-        # "docker://quay.io/biocontainers/multiqc:1.12--pyhdfd78af_0"
+    # "docker://quay.io/biocontainers/multiqc:1.12--pyhdfd78af_0"
     shell:
         """
         multiqc -f {input} \
@@ -378,7 +378,7 @@ rule bcftools:
         ref_fa=config['ref_modi']['index'],
     container:
         config['bcftools'],
-        # "docker://quay.io/biocontainers/bcftools:1.15.1--h0ea216a_0"
+    # "docker://quay.io/biocontainers/bcftools:1.15.1--h0ea216a_0"
     shell:
         """
         bcftools mpileup -f {params.ref_fa} {input.inbam} | bcftools call -mv -Ov -o {output.outvcf}
@@ -397,7 +397,7 @@ rule freebayes:
         ref_fa=config['ref_modi']['index'],
     container:
         config["freebayes"]
-        # "docker://quay.io/biocontainers/freebayes:1.3.6--hb089aa1_0"
+    # "docker://quay.io/biocontainers/freebayes:1.3.6--hb089aa1_0"
     shell:
         """
         freebayes -f {params.ref_fa} -C 10 {input.inbam} > {output.outvcf}
@@ -458,7 +458,7 @@ rule fastp:
         mem_gb=8
     container:
         config["fastp"],
-        # "docker://quay.io/biocontainers/fastp:0.23.2--h79da9fb_0"
+    # "docker://quay.io/biocontainers/fastp:0.23.2--h79da9fb_0"
     shell:
         """
         fastp -i {input} -o {output.trimmed_fq_gz} --json {output.outjson} --html {output.outhtml} --thread 3 --adapter_sequence GTAC
@@ -490,7 +490,7 @@ rule STAR:
         mem_gb=50,
     container:
         config["star"],
-        # "docker://quay.io/biocontainers/star:2.7.10a--h9ee0642_0"
+    # "docker://quay.io/biocontainers/star:2.7.10a--h9ee0642_0"
     shell:
         """
         STAR \

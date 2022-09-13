@@ -10,7 +10,7 @@ Identify vairants in exon 4 to 7 of ABL1.
 1. Demultiplex
 2. QC steps
    - run fastqc on sample.fastq files
-   - trim adapter sequences using cutadapt and discard reads are shorter than 100 bp.
+   - trim adapter sequences using cutadapt and discard reads are shorter than `200 bp`.
    - <del> filtering out low quality of reads (discard reads having avg quality score <= 20)
 3. Correct Homopolymer errors using [Pollux](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-014-0435-6)
 4. Align reads to the reference genome (exon 4 to 7 of ABL1)
