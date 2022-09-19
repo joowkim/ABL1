@@ -1,45 +1,106 @@
+from typing import List
+
 import pandas as pd
-import numpy as np
 import os
 
 
 ## load configure info
 configfile: "configs/configs.yaml"
 
-
 ## load sample info
-# samplesheet="./samples.tsv"
-# units = pd.read_table(samplesheet, dtype={"sample" : str, "sample_group" : str })
+samp_info = pd.read_csv(os.path.join("ubam",config["run_id"],config["sample_info_csv"]))
 
 
-def get_sample_name():
-    import glob
-    sample_list = glob.glob("00.rawdata/*.fq")
-    sample_name = [os.path.basename(i).split(".fq")[0] for i in
-                   sample_list]
+def get_sample_name() -> List[str]:
+    # import glob
+    # sample_list = glob.glob("00.rawdata/*.fq")
+    # sample_name = [os.path.basename(i).split(".fq")[0] for i in
+    #                sample_list]
+    sample_name = samp_info["sample_id"].to_list()
     return sample_name
 
 
 rule all:
     input:
         # expand("analysis/samtools/{sample}.flagstats.tsv",sample=get_sample_name()),
-        "analysis/multiqc/multiqc_report.html",
-        expand("analysis/bcftools/{sample}.vcf",sample=get_sample_name()),
-        expand("analysis/freebayes/{sample}.vcf",sample=get_sample_name()),
-        expand("analysis/get_coverage/{sample}.txt",sample=get_sample_name()),
-        expand("analysis/get_coverage/{sample}.tsv",sample=get_sample_name()),
-        expand("analysis/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name()),
-        expand("analysis/plot_coverage/{sample}.png",sample=get_sample_name()),
-        expand("analysis/haplotype_caller/{sample}.vcf",sample=get_sample_name()),
-        expand("analysis/mutect2/{sample}.vcf",sample=get_sample_name()),
+        expand("analysis/{run_id}/multiqc/multiqc_report.html",run_id=config["run_id"]),
+        expand("analysis/{run_id}/bcftools/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/freebayes/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/get_coverage/{sample}.txt",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/get_coverage/{sample}.tsv",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name(),run_id=config[
+            "run_id"]),
+        expand("analysis/{run_id}/plot_coverage/{sample}.png",sample=get_sample_name(),run_id=config["run_id"]),
+
+# expand("analysis/{run_id}/haplotype_caller/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+# expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+# expand("analysis/{run_id}/demux/{sample}.fq",sample=get_sample_name(),run_id=config["run_id"]),
+# expand("analysis/{run_id}/barcode_info/barcode_info.tsv",run_id=config["run_id"]),
+# expand("analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",run_id=config["run_id"]),
 
 # expand("analysis/09.samtools/{sample}.bam", sample=get_sample_name()),
 
+rule bam2fastq:
+    input:
+        ubam=os.path.join("ubam",config["run_id"],config["ubam"]),
+    output:
+        "analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
+    container:
+        config["samtools"],
+    shell:
+        """
+        samtools bam2fq {input} > {output}
+        """
 
-# rule demux:
-#     input:
-#     output:
-#     shell:
+
+rule process_samp_info:
+    input:
+        default_barcode=config["default_barcodes"],
+        infq=rules.bam2fastq.output,
+        samp_info_csv=os.path.join("ubam",config["run_id"],config["sample_info_csv"]),
+    output:
+        # barcode_info=os.path.join("analysis", config["run_id"], "barcode_info", "barcode_info.tsv"),
+        barcode_info="analysis/{run_id}/barcode_info/barcode_info.tsv",
+    run:
+        barcode_df: pd = pd.read_csv(input.default_barcode,sep="\t")
+        # barcode_df looks like this.
+        # id  seq style adapter
+        # 420   CGAACATATTC    S5    GTAC
+        # 421  TTGGACTTATTC    S5    GTAC
+        # 422  CGAGGCAATGAC    S5    GTAC
+        # 423  TCGAGATTAATC    S5    GTAC
+        # 424   TTCGCCAACAC    S5    GTAC
+        # 425  TCGGCACGAATC    S5    GTAC
+
+        samp_info: pd = pd.read_csv(input.samp_info_csv)
+        # samp_df looks like this.
+        # row,sample_id,barcode
+        # 1,6806006070_DL,420
+        # 2,1_per_minor_qc,421
+        # 3,690702015_DO,422
+        # 4,1_per_major_qc,423
+
+        samp_df: pd = barcode_df.merge(samp_info,left_on="id",right_on="barcode")
+        final_df: pd = samp_df[["sample_id", "seq", "style", "adapter"]]
+        final_df.columns = ["ID", "SEQ", "Style", "Adapter"]
+        final_df.to_csv(output.barcode_info,index=False,sep="\t")
+
+
+rule demux:
+    input:
+        barcode_info=rules.process_samp_info.output.barcode_info,
+    output:
+        touch=touch("analysis/{run_id}/demux/done"),
+    # outfq="analysis/{run_id}/demux/{sample}.fq",
+    params:
+        infq="analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
+        outfq="analysis/{run_id}/demux/%.fq",
+        IDfq="analysis/{run_id}/demux/ID.fq"
+    shell:
+        """
+        fastq-multx -m 0 -b -B {input.barcode_info} {params.infq} -o {params.outfq}
+        rm {params.IDfq}
+        """
 
 
 rule fastqc:
@@ -47,15 +108,16 @@ rule fastqc:
     Run fastqc on raw_data/files.
     """
     input:
-        "00.rawdata/{sample}.fq"
+        rules.demux.output.touch,
     output:
-        html="analysis/fastqc/{sample}_fastqc.html",
-        zip="analysis/fastqc/{sample}_fastqc.zip"
+        html="analysis/{run_id}/fastqc/{sample}_fastqc.html",
+        zip="analysis/{run_id}/fastqc/{sample}_fastqc.zip"
     params:
-        outdir="analysis/fastqc/"
+        outdir=os.path.join("analysis/{run_id}/fastqc/"),
+        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
     log:
-        stdout="logs/fastqc/{sample}.o",
-        stderr="logs/fastqc/{sample}.e"
+        stdout="logs/fastqc/{run_id}/{sample}.o",
+        stderr="logs/fastqc/{run_id}/{sample}.e"
     threads: 1
     resources:
         mem_gb=8
@@ -64,46 +126,50 @@ rule fastqc:
     # "docker://biocontainers/fastqc:v0.11.9_cv8"
     shell:
         """
-        fastqc --outdir {params.outdir} {input}
+        fastqc --outdir {params.outdir} {params.input}
         """
 
 
 rule fastq_screen:
     input:
-        "00.rawdata/{sample}.fq",
+        rules.demux.output.touch,
+        # "analysis/{run_id}/demux/{sample}.fq",
     output:
-        html="analysis/fastq_screen/{sample}_screen.html",
-        txt="analysis/fastq_screen/{sample}_screen.txt",
+        html="analysis/{run_id}/fastq_screen/{sample}_screen.html",
+        txt="analysis/{run_id}/fastq_screen/{sample}_screen.txt",
     log:
-        "logs/fastq_screen/{sample}.log",
+        "logs/fastq_screen/{run_id}/{sample}.log",
     params:
         fastq_screen=config["fastq_screen"]["path"],
         conf=config["fastq_screen"]["conf"],
         bowtie2=config["bowtie2"]["path"],
+        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
     threads: 2
     container:
         config["fastq_screen"]["sif"]
     # "docker://quay.io/biocontainers/fastq-screen:0.14.0--pl5321hdfd78af_2"
     shell:
         """
-        {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {input} 2> {log}
+        {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {params.input} 2> {log}
         """
 
 
 rule cutadapt:
     """
-    Run cutadapt to remove short reads/adapter - less than 100bp 
+    Run cutadapt to remove short reads/adapter - less than 200bp 
     """
     input:
-        "00.rawdata/{sample}.fq",
+        rules.demux.output.touch
+        # "analysis/{run_id}/demux/{sample}.fq",
     output:
-        trimmed_fq="analysis/cutadapt/{sample}.fq",
+        trimmed_fq="analysis/{run_id}/cutadapt/{sample}.fq",
     log:
-        stdout="logs/cutadapt/{sample}.o",
-        stderr="logs/cutadapt/{sample}.e",
+        stdout="logs/{run_id}/cutadapt/{sample}.o",
+        stderr="logs/{run_id}/cutadapt/{sample}.e",
     params:
         length="200",
         adapter="GTAC",
+        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
     threads: 4
     resources:
         mem_gb=8
@@ -112,7 +178,7 @@ rule cutadapt:
     # "docker://quay.io/biocontainers/cutadapt:4.1--py38hbff2b2d_1"
     shell:
         """
-        cutadapt -o {output.trimmed_fq}  --minimum-length {params.length}  -b {params.adapter}  --revcomp {input} > {log.stdout} 2> {log.stderr}
+        cutadapt -o {output.trimmed_fq}  --minimum-length {params.length}  -b {params.adapter}  --revcomp {params.input} > {log.stdout} 2> {log.stderr}
         """
 
 
@@ -123,17 +189,16 @@ rule pollux:
     input:
         rules.cutadapt.output.trimmed_fq,
     output:
-        fqgz="analysis/pollux/{sample}.fq.gz",
-        tempfq=temp("analysis/pollux/{sample}.fq.corrected"),
-        lowfq=temp("analysis/pollux/{sample}.fq.low"),
+        fqgz="analysis/{run_id}/pollux/{sample}.fq.gz",
+        tempfq=temp("analysis/{run_id}/pollux/{sample}.fq.corrected"),
+        lowfq=temp("analysis/{run_id}/pollux/{sample}.fq.low"),
     params:
-        outdir="analysis/pollux",
+        outdir="analysis/{run_id}/pollux",
     shell:
         """
         pollux -i {input} -o {params.outdir} -h "true"
         
         gzip -c {output.tempfq} > {output.fqgz}
-        
         """
 
 
@@ -145,13 +210,13 @@ rule bwa:
         fq=rules.pollux.output.fqgz,
         idx=config['ref_modi']['index'],
     output:
-        outsam=temp("analysis/bwamem/{sample}.sam")
+        outsam=temp("analysis/{run_id}/bwamem/{sample}.sam")
     params:
         prefix="{sample}",
     # idx=config['ref_modi']['index'],
     log:
-        stdout="logs/bwamem/{sample}.o",
-        stderr="logs/bwamem/{sample}.e",
+        stdout="logs/{run_id}/bwamem/{sample}.o",
+        stderr="logs/{run_id}/bwamem/{sample}.e",
     threads: 4
     resources:
         mem_gb=20
@@ -168,12 +233,12 @@ rule sam2bam:
     input:
         insam=rules.bwa.output.outsam,
     output:
-        outbam="analysis/bwamem/{sample}.bam",
-        outbai="analysis/bwamem/{sample}.bam.bai",
-        idxstat="analysis/bwamem/{sample}.bam.idxstat",
+        outbam="analysis/{run_id}/bwamem/{sample}.bam",
+        outbai="analysis/{run_id}/bwamem/{sample}.bam.bai",
+        idxstat="analysis/{run_id}/bwamem/{sample}.bam.idxstat",
     log:
-        stdout="logs/sam2bam/{sample}.o",
-        stderr="logs/sam2bam/{sample}.e",
+        stdout="logs/{run_id}/sam2bam/{sample}.o",
+        stderr="logs/{run_id}/sam2bam/{sample}.e",
     threads: 4
     resources:
         mem_gb=20
@@ -191,8 +256,8 @@ rule samtools_stat:
     input:
         rules.sam2bam.output.outbam,
     output:
-        out_stats="analysis/samtools_stats/{sample}.stats",
-        out_flagstats="analysis/samtools_stats/{sample}.flagstat.txt",
+        out_stats="analysis/{run_id}/samtools_stats/{sample}.stats",
+        out_flagstats="analysis/{run_id}/samtools_stats/{sample}.flagstat.txt",
     threads: 2
     container:
         config["samtools"],
@@ -213,14 +278,14 @@ rule samtools:
         outbai=rules.sam2bam.output.outbai,
         idxstat=rules.sam2bam.output.idxstat,
     output:
-        output_coverage_tsv="analysis/plot_coverage/{sample}.coverage.tsv",
-        tempbam=temp("analysis/samtools{sample}.temp.bam"),
-        outbam=("analysis/samtools/{sample}.bam"),
-        idxstat="analysis/samtools/{sample}.bam.idxstat",
-        bam_idx="analysis/samtools/{sample}.bam.bai",
+        output_coverage_tsv="analysis/{run_id}/plot_coverage/{sample}.coverage.tsv",
+        tempbam=temp("analysis/{run_id}/samtools{sample}.temp.bam"),
+        outbam=("analysis/{run_id}/samtools/{sample}.bam"),
+        idxstat="analysis/{run_id}/samtools/{sample}.bam.idxstat",
+        bam_idx="analysis/{run_id}/samtools/{sample}.bam.bai",
     log:
-        stdout="logs/samtools/{sample}.o",
-        stderr="logs/samtools/{sample}.e",
+        stdout="logs/{run_id}/samtools/{sample}.o",
+        stderr="logs/{run_id}/samtools/{sample}.e",
     # params:
     #     temp_bam=temp("analysis/03.samtools/SA.only.bam"),
     #     temp_id_list=temp("analysis/03.samtools/SA.id.list"),
@@ -252,7 +317,7 @@ rule get_align_metrics:
     input:
         inbam=rules.samtools.output.outbam
     output:
-        metrics="analysis/align_metrics/{sample}.align.metrics.txt",
+        metrics="analysis/{run_id}/align_metrics/{sample}.align.metrics.txt",
     params:
         picard=config["picard"],
         ref_fa=config["ref_modi"]["sequence"],
@@ -275,11 +340,11 @@ rule mark_dups:
         inbam=rules.samtools.output.outbam,
         metrics=rules.get_align_metrics.output.metrics,
     output:
-        outbam="analysis/mark_dups/{sample}.bam",
-        outbamidx="analysis/mark_dups/{sample}.bam.bai",
+        outbam="analysis/{run_id}/mark_dups/{sample}.bam",
+        outbamidx="analysis/{run_id}/mark_dups/{sample}.bam.bai",
     log:
-        out="logs/mark_dup/{sample}.o",
-        err="logs/mark_dup/{sample}.e"
+        out="logs/{run_id}/mark_dup/{sample}.o",
+        err="logs/{run_id}/mark_dup/{sample}.e"
     params:
         picard=config["picard"],
         ref_fa=config["ref_modi"]["sequence"],
@@ -299,7 +364,7 @@ rule gatk_haplotype_caller:
     input:
         inbam=rules.samtools.output.outbam,
     output:
-        outvcf="analysis/haplotype_caller/{sample}.vcf",
+        outvcf="analysis/{run_id}/haplotype_caller/{sample}.vcf",
     params:
         #option="-Xmx4g -XX:ParallelGCThreads=1",
         ref_fa=config["ref_modi"]["index"],
@@ -318,7 +383,7 @@ rule gatk_mutect2:
     input:
         inbam=rules.samtools.output.outbam,
     output:
-        outvcf="analysis/mutect2/{sample}.vcf",
+        outvcf="analysis/{run_id}/mutect2/{sample}.vcf",
     params:
         ref_fa=config["ref_modi"]["index"],
     # container:
@@ -335,22 +400,24 @@ rule multiqc:
     """
     input:
         # expand("analysis/star/{sample}.Log.final.out", sample=get_sample_name()),
-        expand("analysis/fastqc/{sample}_fastqc.html",sample=get_sample_name()),
-        expand("analysis/fastqc/{sample}_fastqc.zip",sample=get_sample_name()),
+        expand("analysis/{run_id}/fastqc/{sample}_fastqc.html",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/fastqc/{sample}_fastqc.zip",sample=get_sample_name(),run_id=config["run_id"]),
         # expand("analysis/bwamem/{sample}.bam.idxstat", sample=get_sample_name()),
         # expand("analysis/samtools/{sample}.bam.idxstat",sample=get_sample_name()),
         # expand("analysis/fastp/{sample}.fastp.json",sample=get_sample_name()),
         # expand("analysis/samtools/{sample}.flagstats.tsv",sample=get_sample_name()),
         # expand("analysis/align_metrics/{sample}.align.metrics.txt",sample=get_sample_name()),
         # expand("logs/mark_dup/{sample}.o",sample=get_sample_name()),
-        expand("analysis/samtools_stats/{sample}.stats",sample=get_sample_name()),
+        expand("analysis/{run_id}/samtools_stats/{sample}.stats",sample=get_sample_name(),run_id=config["run_id"]),
     # expand("analysis/fastq_screen/{sample}_screen.txt",sample=get_sample_name()),
     # expand("analysis/samtools_stats/{sample}.flagstat.txt", sample=get_sample_name()),
     output:
-        "analysis/multiqc/multiqc_report.html",
+        "analysis/{run_id}/multiqc/multiqc_report.html",
     log:
-        stdout="logs/multiqc/multiqc.o",
-        stderr="logs/multiqc/multiqc.e",
+        stdout="logs/{run_id}/multiqc/multiqc.o",
+        stderr="logs/{run_id}/multiqc/multiqc.e",
+    params:
+        outdir = "analysis/{run_id}/multiqc/"
     threads: 4
     resources:
         mem_gb=100
@@ -360,7 +427,7 @@ rule multiqc:
     shell:
         """
         multiqc -f {input} \
-        -o analysis/multiqc \
+        -o {params.outdir} \
         -n multiqc_report.html \
         --cl-config 'max_table_rows: 999999' \
         """
@@ -373,7 +440,7 @@ rule bcftools:
     input:
         inbam=rules.samtools.output.outbam
     output:
-        outvcf="analysis/bcftools/{sample}.vcf"
+        outvcf="analysis/{run_id}/bcftools/{sample}.vcf"
     params:
         ref_fa=config['ref_modi']['index'],
     container:
@@ -392,7 +459,7 @@ rule freebayes:
     input:
         inbam=rules.samtools.output.outbam
     output:
-        outvcf="analysis/freebayes/{sample}.vcf"
+        outvcf="analysis/{run_id}/freebayes/{sample}.vcf"
     params:
         ref_fa=config['ref_modi']['index'],
     container:
@@ -400,9 +467,11 @@ rule freebayes:
     # "docker://quay.io/biocontainers/freebayes:1.3.6--hb089aa1_0"
     shell:
         """
-        freebayes -f {params.ref_fa} -C 10 {input.inbam} > {output.outvcf}
+        freebayes -f {params.ref_fa} -C 10 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --min-coverage 6 --read-snp-limit 10 {input.inbam} > {output.outvcf}
         """
 
+# this is freebayes options thresholds.
+# go to http://194.141.43.170/ion-docs/GUID-D6EA72BF-74FE-4923-B796-E484734B424B.html
 
 rule get_coverage:
     """
@@ -411,8 +480,8 @@ rule get_coverage:
     input:
         inbam=rules.samtools.output.outbam,
     output:
-        summaryfile="analysis/get_coverage/{sample}.txt",
-        bedfile="analysis/get_coverage/{sample}.tsv",
+        summaryfile="analysis/{run_id}/get_coverage/{sample}.txt",
+        bedfile="analysis/{run_id}/get_coverage/{sample}.tsv",
     shell:
         """
         python3 src/get_coverage.py -b {input.inbam} -o {output.bedfile}  -min_read_over_lap 0.5  -min_amplicon_cov 300  -min_sample_cov 100  -min_read_uniform 0.2 -s {output.summaryfile}
@@ -428,9 +497,9 @@ rule plot_coverage:
         coverage_tsv=rules.samtools.output.output_coverage_tsv,
     output:
         # output_coverage_tsv="analysis/plot_coverage/{sample}.coverage.tsv",
-        outpng="analysis/plot_coverage/{sample}.png",
+        outpng="analysis/{run_id}/plot_coverage/{sample}.png",
     params:
-        prefix="analysis/plot_coverage/{sample}"
+        prefix="analysis/{run_id}/plot_coverage/{sample}"
     container:
         config["tidyverse"]
     shell:
@@ -447,12 +516,12 @@ rule fastp:
     input:
         "00.rawdata/{sample}.fq"
     output:
-        trimmed_fq_gz="analysis/fastp/{sample}.fq.gz",
-        outjson="analysis/fastp/{sample}.fastp.json",
-        outhtml="analysis/fastp/{sample}.fastp.html",
+        trimmed_fq_gz="analysis/{run_id}/fastp/{sample}.fq.gz",
+        outjson="analysis/{run_id}/fastp/{sample}.fastp.json",
+        outhtml="analysis/{run_id}/fastp/{sample}.fastp.html",
     log:
-        stdout="logs/fastp/{sample}.o",
-        stderr="logs/fastp/{sample}.e",
+        stdout="logs/{run_id}/fastp/{sample}.o",
+        stderr="logs/{run_id}/fastp/{sample}.e",
     threads: 4
     resources:
         mem_gb=8
@@ -470,20 +539,20 @@ rule STAR:
         rules.cutadapt.output.trimmed_fq
     output:
         # see STAR manual for additional output files
-        bam="analysis/star/{sample}.Aligned.sortedByCoord.out.bam",
-        bai="analysis/star/{sample}.Aligned.sortedByCoord.out.bam.bai",
-        log_final="analysis/star/{sample}.Log.final.out",
-        log="analysis/star/{sample}.Log.out",
-        rpg="analysis/star/{sample}.ReadsPerGene.out.tab",
-        sj="analysis/star/{sample}.SJ.out.tab",
-        g_dir=directory("analysis/star/{sample}._STARgenome"),
-        pass1_dir=directory("analysis/star/{sample}._STARpass1"),
+        bam="analysis/{run_id}/star/{sample}.Aligned.sortedByCoord.out.bam",
+        bai="analysis/{run_id}/star/{sample}.Aligned.sortedByCoord.out.bam.bai",
+        log_final="analysis/{run_id}/star/{sample}.Log.final.out",
+        log="analysis/{run_id}/star/{sample}.Log.out",
+        rpg="analysis/{run_id}/star/{sample}.ReadsPerGene.out.tab",
+        sj="analysis/{run_id}/star/{sample}.SJ.out.tab",
+        g_dir=directory("analysis/{run_id}/star/{sample}._STARgenome"),
+        pass1_dir=directory("analysis/{run_id}/star/{sample}._STARpass1"),
     params:
         # path to STAR reference genome index
         index=config["ref_modi"]["star_index"],
-        outprefix="analysis/star/{sample}."
+        outprefix="analysis/{run_id}/star/{sample}."
     log:
-        "logs/star/{sample}.log"
+        "logs/{run_id}/star/{sample}.log"
     threads: 8
     resources:
         nodes=1,
@@ -511,12 +580,12 @@ rule star_samtools:
     input:
         rules.STAR.output.bam,
     output:
-        outbam="analysis/star_samtools/{sample}.bam",
-        bamidx="analysis/star_samtools/{sample}.bam.bai"
+        outbam="analysis/{run_id}/star_samtools/{sample}.bam",
+        bamidx="analysis/{run_id}/star_samtools/{sample}.bam.bai"
     threads: 4
     log:
-        stdout="logs/star_samtools/{sample}.o",
-        stderr="logs/star_samtools/{sample}.e",
+        stdout="logs/{run_id}/star_samtools/{sample}.o",
+        stderr="logs/{run_id}/star_samtools/{sample}.e",
     container:
         "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:

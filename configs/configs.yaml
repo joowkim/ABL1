@@ -1,22 +1,37 @@
+run_id:
+  "S7-0007-484"
+
+ubam:
+  "nomatch_rawlib.basecaller.bam"
+
+sample_info_csv:
+  "sample_info.csv"
+
+default_barcodes:
+  "configs/barcodes.tsv"
+
+barcode:
+  "configs/barcodes.tsv"
+
 ref_modi:
   # path/to/reference/gDNA.fasta
-  sequence:       "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
-  fai:            "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
+  sequence: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
+  fai: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
   # path/to/bwa/index/directory
-#  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
-  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
-#  bowtie2_index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
+  #  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
+  index: "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
+  #  bowtie2_index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
   # path/to/gtf/file/with/transcripts.gtf
-  annotation:     "/media/hd1/jkim/genome/ABL1_NM005157.4/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
-  star_index:     "/media/hd1/jkim/genome/index/ucsc/hg19/star"
+  annotation: "/media/hd1/jkim/genome/ABL1_NM005157.4/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
+  star_index: "/media/hd1/jkim/genome/index/ucsc/hg19/star"
 
 ref_full:
-  sequence:       "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa"
-  fai:            "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa.fai"
+  sequence: "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa"
+  fai: "/media/hd1/jkim/genome/assembly/ucsc/hg19/hg19.fa.fai"
   # path/to/bwa/index/directory
-  index:          "/media/hd1/jkim/genome/index/ucsc/hg19/bwa/hg19"
+  index: "/media/hd1/jkim/genome/index/ucsc/hg19/bwa/hg19"
   # path/to/gtf/file/with/transcripts.gtf
-  annotation:     "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
+  annotation: "/media/hd1/jkim/genome/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
 
 bwa:
   "/home/jaykim/jkim/singularity/bwa_v0.7.17_cv1.sif"
@@ -52,7 +67,7 @@ bowtie2:
   path: "/usr/local/bin/bowtie2"
 
 bcftools:
-  "/home/jaykim/jkim/singularity/bcftools.1.15.1.sif"
+  "/home/jaykim/jkim/singularity/bcftools_1.15.1--h0ea216a_0.sif"
 
 freebayes:
   "/home/jaykim/jkim/singularity/freebayes_1.3.6--hb089aa1_0.sif"

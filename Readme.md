@@ -64,8 +64,13 @@ from Thermo fisher PGM manual
 ----
 ## How to run the pipeline
 
-This is a dry run. `snakemake -npr`. If the standard output looks expected, run `snakemake -j 1 # of job`.
+
+This is a dry run. `snakemake -npr`. 
+
+If the standard output looks expected, run `snakemake -j 1 # of job`.
+
 Example `snakemake -p -j1 --use-singularity  --singularity-args "-B //media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa//://media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/"`
+
 ----
 
 ## Build the reference genome
