@@ -31,14 +31,15 @@ rule all:
         expand("analysis/{run_id}/plot_coverage/{sample}.coverage.tsv",sample=get_sample_name(),run_id=config[
             "run_id"]),
         expand("analysis/{run_id}/plot_coverage/{sample}.png",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/deepvariant/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/deepvariant/{sample}.gvcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/deepvariant/{sample}.visual_report.html",sample=get_sample_name(),run_id=config[
+            "run_id"]),
+        expand("analysis/{run_id}/haplotype_caller/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/vcftools/{sample}.filt.recode.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/vcf_html/{sample}.vcf.html",sample=get_sample_name(),run_id=config["run_id"]),
 
-# expand("analysis/{run_id}/haplotype_caller/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
-# expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
-# expand("analysis/{run_id}/demux/{sample}.fq",sample=get_sample_name(),run_id=config["run_id"]),
-# expand("analysis/{run_id}/barcode_info/barcode_info.tsv",run_id=config["run_id"]),
-# expand("analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",run_id=config["run_id"]),
-
-# expand("analysis/09.samtools/{sample}.bam", sample=get_sample_name()),
 
 rule bam2fastq:
     input:
@@ -91,7 +92,6 @@ rule demux:
         barcode_info=rules.process_samp_info.output.barcode_info,
     output:
         touch=touch("analysis/{run_id}/demux/done"),
-    # outfq="analysis/{run_id}/demux/{sample}.fq",
     params:
         infq="analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
         outfq="analysis/{run_id}/demux/%.fq",
@@ -114,7 +114,7 @@ rule fastqc:
         zip="analysis/{run_id}/fastqc/{sample}_fastqc.zip"
     params:
         outdir=os.path.join("analysis/{run_id}/fastqc/"),
-        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
+        input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
     log:
         stdout="logs/fastqc/{run_id}/{sample}.o",
         stderr="logs/fastqc/{run_id}/{sample}.e"
@@ -133,7 +133,7 @@ rule fastqc:
 rule fastq_screen:
     input:
         rules.demux.output.touch,
-        # "analysis/{run_id}/demux/{sample}.fq",
+    # "analysis/{run_id}/demux/{sample}.fq",
     output:
         html="analysis/{run_id}/fastq_screen/{sample}_screen.html",
         txt="analysis/{run_id}/fastq_screen/{sample}_screen.txt",
@@ -143,14 +143,18 @@ rule fastq_screen:
         fastq_screen=config["fastq_screen"]["path"],
         conf=config["fastq_screen"]["conf"],
         bowtie2=config["bowtie2"]["path"],
-        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
+        input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
     threads: 2
     container:
         config["fastq_screen"]["sif"]
     # "docker://quay.io/biocontainers/fastq-screen:0.14.0--pl5321hdfd78af_2"
     shell:
         """
-        {params.fastq_screen} --aligner bowtie2 --bowtie2 {params.bowtie2} --outdir analysis/fastq_screen/ --threads {threads} --conf {params.conf}  {params.input} 2> {log}
+        {params.fastq_screen} --aligner bowtie2 \ 
+        --bowtie2 {params.bowtie2} \ 
+        --outdir analysis/fastq_screen/ \ 
+        --threads {threads} \ 
+        --conf {params.conf}  {params.input} 2> {log}
         """
 
 
@@ -160,7 +164,7 @@ rule cutadapt:
     """
     input:
         rules.demux.output.touch
-        # "analysis/{run_id}/demux/{sample}.fq",
+    # "analysis/{run_id}/demux/{sample}.fq",
     output:
         trimmed_fq="analysis/{run_id}/cutadapt/{sample}.fq",
     log:
@@ -169,7 +173,7 @@ rule cutadapt:
     params:
         length="200",
         adapter="GTAC",
-        input="analysis/{run_id}/demux/{sample}.fq", run_id=config["run_id"],sample=get_sample_name(),
+        input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
     threads: 4
     resources:
         mem_gb=8
@@ -178,7 +182,10 @@ rule cutadapt:
     # "docker://quay.io/biocontainers/cutadapt:4.1--py38hbff2b2d_1"
     shell:
         """
-        cutadapt -o {output.trimmed_fq}  --minimum-length {params.length}  -b {params.adapter}  --revcomp {params.input} > {log.stdout} 2> {log.stderr}
+        cutadapt -o {output.trimmed_fq} \
+        --minimum-length {params.length} \
+        -b {params.adapter} \
+        --revcomp {params.input} > {log.stdout} 2> {log.stderr}
         """
 
 
@@ -309,6 +316,7 @@ rule samtools:
         samtools depth {output.outbam} > {output.output_coverage_tsv}
         """
 
+
 rule get_align_metrics:
     """
     Run picard to get alignment metrics
@@ -417,7 +425,7 @@ rule multiqc:
         stdout="logs/{run_id}/multiqc/multiqc.o",
         stderr="logs/{run_id}/multiqc/multiqc.e",
     params:
-        outdir = "analysis/{run_id}/multiqc/"
+        outdir="analysis/{run_id}/multiqc/"
     threads: 4
     resources:
         mem_gb=100
@@ -470,8 +478,71 @@ rule freebayes:
         freebayes -f {params.ref_fa} -C 10 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --min-coverage 6 --read-snp-limit 10 {input.inbam} > {output.outvcf}
         """
 
+#freebayes -f {params.ref_fa} -C 10 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --min-coverage 6 --read-snp-limit 10 {input.inbam} > {output.outvcf}
 # this is freebayes options thresholds.
 # go to http://194.141.43.170/ion-docs/GUID-D6EA72BF-74FE-4923-B796-E484734B424B.html
+
+
+rule vcftools:
+    """
+    Filter vcf files from freebayes
+    """
+    input:
+        rules.freebayes.output.outvcf,
+    output:
+        out_filt_vcf="analysis/{run_id}/vcftools/{sample}.filt.recode.vcf",
+    params:
+        minQ=20,
+        minGQ=20,
+        prefix="analysis/{run_id}/vcftools/{sample}.filt",
+    container:
+        config["vcftools"],
+    shell:
+        """
+        vcftools --vcf {input} --minQ {params.minQ} --recode --recode-INFO-all --out {params.prefix} --minGQ {params.minGQ}
+        """
+
+
+rule variant_report:
+    """
+    VCF file reports - html
+    """
+    input:
+        rules.vcftools.output.out_filt_vcf
+    output:
+        outhtml="analysis/{run_id}/vcf_html/{sample}.vcf.html",
+    params:
+        jar="/usr/local/bin/vcf2table.jar"
+    shell:
+        """
+        java -jar {params.jar} {input} --color --format html > {output.outhtml}
+        """
+
+
+rule deepvariant:
+    input:
+        inbam=rules.samtools.output.outbam
+    output:
+        outvcf="analysis/{run_id}/deepvariant/{sample}.vcf",
+        outgvcf="analysis/{run_id}/deepvariant/{sample}.gvcf",
+        outhtml="analysis/{run_id}/deepvariant/{sample}.visual_report.html"
+    params:
+        ref_fa=config["ref_modi"]["sequence"],
+        deepvariant_sif=config["deepvariant"],
+        threads=4,
+        region="exon_4_5_6_7:1-725",
+        ref_fa_path=config["ref_modi"]["path"],
+    shell:
+        """
+        singularity run -B {params.ref_fa_path}:{params.ref_fa_path} {params.deepvariant_sif} /opt/deepvariant/bin/run_deepvariant \
+         --model_type=WES \
+         --ref="{params.ref_fa}" \
+         --reads={input.inbam} \
+         --regions "{params.region}" \
+         --output_vcf={output.outvcf} \
+         --output_gvcf={output.outgvcf} \
+         --num_shards={params.threads}
+        """
 
 rule get_coverage:
     """

@@ -28,12 +28,12 @@ ggplot(coverage_df, aes(x = locus, y = depth)) +
     shape = 20,
     alpha = 1 / 3
   ) +
-  xlab("Locus") +
+  xlab("Exon 4 to 7") +
   ylab("Coverage") +
   ggtitle("Exon 4 to 7 of ABL1 - coverage plot") +
   theme_bw() +
   geom_vline(xintercept = c(125, 274, 359, 537, 712), color=c("grey", "grey", "grey", "grey", "grey") ,linetype="longdash") +
-  geom_text(aes(x = 125, label = "FwPrimer", y = -50), size = 3) +
+  geom_text(aes(x = 125, label = "FwPrimer", y = -100), size = 3) +
   geom_text(aes(x = 274, label = "Exon4", y = 1), text = element_text(size =
                                                                         3)) +
   geom_text(aes(x = 359, label = "Exon5", y = 1), text = element_text(size =
@@ -42,7 +42,7 @@ ggplot(coverage_df, aes(x = locus, y = depth)) +
                                                                         3)) +
   geom_text(aes(x = 712, label = "Exon7", y = 1), text = element_text(size =
                                                                         3)) +
-  geom_text(aes(x = 712, label = "RevPrimer", y = -50), size =3)
+  geom_text(aes(x = 712, label = "RevPrimer", y = -100), size =3)
 
 
 ggsave(paste0(output_prefix, ".pdf"))

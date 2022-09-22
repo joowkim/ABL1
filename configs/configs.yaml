@@ -17,6 +17,7 @@ ref_modi:
   # path/to/reference/gDNA.fasta
   sequence: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
   fai: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
+  path: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/"
   # path/to/bwa/index/directory
   #  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
   index: "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
@@ -77,3 +78,9 @@ fastp:
 
 tidyverse:
   "/home/jaykim/jkim/singularity/tidyverse_latest.sif"
+
+deepvariant:
+  "/home/jaykim/jkim/singularity/deepvariant.sif"
+
+vcftools:
+  "/home/jaykim/jkim/singularity/vcftools_v0.1.16-1-deb_cv1.sif"
