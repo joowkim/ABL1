@@ -234,6 +234,9 @@ rule bwa:
         """
         bwa mem -M -t {threads} -R '@RG\\tID:{params.prefix}\\tLB:{params.prefix}\\tPL:Ion\\tPM:Torren\\tSM:{params.prefix}' {input.idx} {input.fq} > {output.outsam}  
         """
+# -M: mark shorter split hits as secondary
+# This is optional for Picard compatibility as MarkDuplicates can directly process BWA's alignment, whether or not the alignment marks secondary hits. However, if we want MergeBamAlignment to reassign proper pair alignments, to generate data comparable to that produced by the Broad Genomics Platform, then we must mark secondary alignments [GATK discussion forum].
+
 
 
 rule sam2bam:
@@ -492,8 +495,8 @@ rule vcftools:
     output:
         out_filt_vcf="analysis/{run_id}/vcftools/{sample}.filt.recode.vcf",
     params:
-        minQ=20,
-        minGQ=20,
+        minQ=10,
+        minGQ=10,
         prefix="analysis/{run_id}/vcftools/{sample}.filt",
     container:
         config["vcftools"],
@@ -501,6 +504,8 @@ rule vcftools:
         """
         vcftools --vcf {input} --minQ {params.minQ} --recode --recode-INFO-all --out {params.prefix} --minGQ {params.minGQ}
         """
+# diff between QUAL and GQ
+# see https://gatk.broadinstitute.org/hc/en-us/articles/360035531392-Difference-between-QUAL-and-GQ-annotations-in-germline-variant-calling
 
 
 rule variant_report:
@@ -543,6 +548,7 @@ rule deepvariant:
          --output_gvcf={output.outgvcf} \
          --num_shards={params.threads}
         """
+
 
 rule get_coverage:
     """
