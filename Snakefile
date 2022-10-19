@@ -35,8 +35,8 @@ rule all:
         expand("analysis/{run_id}/deepvariant/{sample}.gvcf",sample=get_sample_name(),run_id=config["run_id"]),
         expand("analysis/{run_id}/deepvariant/{sample}.visual_report.html",sample=get_sample_name(),run_id=config[
             "run_id"]),
-        expand("analysis/{run_id}/haplotype_caller/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
-        expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        # expand("analysis/{run_id}/haplotype_caller/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
+        # expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
         expand("analysis/{run_id}/vcftools/{sample}.filt.recode.vcf",sample=get_sample_name(),run_id=config["run_id"]),
         expand("analysis/{run_id}/vcf_html/{sample}.vcf.html",sample=get_sample_name(),run_id=config["run_id"]),
 
@@ -48,9 +48,12 @@ rule bam2fastq:
         "analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
     container:
         config["samtools"],
+    message: "Convert ubam into a fastq file."
+    log:
+        stderr="analysis/{run_id}/logs/bam2fastq/{run_id}.e"
     shell:
         """
-        samtools bam2fq {input} > {output}
+        samtools bam2fq {input} > {output} 2>{log.stderr}
         """
 
 
@@ -62,6 +65,7 @@ rule process_samp_info:
     output:
         # barcode_info=os.path.join("analysis", config["run_id"], "barcode_info", "barcode_info.tsv"),
         barcode_info="analysis/{run_id}/barcode_info/barcode_info.tsv",
+    message: "Generate a meta info file for demux."
     run:
         barcode_df: pd = pd.read_csv(input.default_barcode,sep="\t")
         # barcode_df looks like this.
@@ -96,10 +100,14 @@ rule demux:
         infq="analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
         outfq="analysis/{run_id}/demux/%.fq",
         IDfq="analysis/{run_id}/demux/ID.fq"
+    message: "Execute the demultiplex step by fastq-multx",
+    log:
+        stdout="analysis/{run_id}/logs/demux/{run_id}.o",
+        stderr="analysis/{run_id}/logs/demux/{run_id}.o",
     shell:
         """
         fastq-multx -m 0 -b -B {input.barcode_info} {params.infq} -o {params.outfq}
-        rm {params.IDfq}
+        rm {params.IDfq} 2>{log.stderr} 1>{log.stdout}
         """
 
 
@@ -115,9 +123,10 @@ rule fastqc:
     params:
         outdir=os.path.join("analysis/{run_id}/fastqc/"),
         input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
+    message: "Execute fastqc for raw data - NOT trimmed data - on {input}"
     log:
-        stdout="logs/fastqc/{run_id}/{sample}.o",
-        stderr="logs/fastqc/{run_id}/{sample}.e"
+        stdout="analysis/{run_id}/logs/fastqc/{sample}.o",
+        stderr="analysis/{run_id}/logs/fastqc/{sample}.e"
     threads: 1
     resources:
         mem_gb=8
@@ -126,24 +135,25 @@ rule fastqc:
     # "docker://biocontainers/fastqc:v0.11.9_cv8"
     shell:
         """
-        fastqc --outdir {params.outdir} {params.input}
+        fastqc --outdir {params.outdir} {params.input} 2>{log.stderr} 1>{log.stdout}
         """
 
 
 rule fastq_screen:
     input:
         rules.demux.output.touch,
-    # "analysis/{run_id}/demux/{sample}.fq",
     output:
         html="analysis/{run_id}/fastq_screen/{sample}_screen.html",
         txt="analysis/{run_id}/fastq_screen/{sample}_screen.txt",
     log:
-        "logs/fastq_screen/{run_id}/{sample}.log",
+        stderr = "analysis/{run_id}/logs/fastq_screen/{sample}.e",
+        stdout = "analysis/{run_id}/logs/fastq_screen/{sample}.o",
     params:
         fastq_screen=config["fastq_screen"]["path"],
         conf=config["fastq_screen"]["conf"],
         bowtie2=config["bowtie2"]["path"],
         input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
+    message: "Execute fastq-screen for checking if samples are contaminated by other random species. - on {input}"
     threads: 2
     container:
         config["fastq_screen"]["sif"]
@@ -154,7 +164,7 @@ rule fastq_screen:
         --bowtie2 {params.bowtie2} \ 
         --outdir analysis/fastq_screen/ \ 
         --threads {threads} \ 
-        --conf {params.conf}  {params.input} 2> {log}
+        --conf {params.conf}  {params.input} 2> {log.stderr} 1> {log.stdout}
         """
 
 
@@ -164,16 +174,16 @@ rule cutadapt:
     """
     input:
         rules.demux.output.touch
-    # "analysis/{run_id}/demux/{sample}.fq",
     output:
         trimmed_fq="analysis/{run_id}/cutadapt/{sample}.fq",
     log:
-        stdout="logs/{run_id}/cutadapt/{sample}.o",
-        stderr="logs/{run_id}/cutadapt/{sample}.e",
+        stdout="analysis/{run_id}/logs/cutadapt/{sample}.o",
+        stderr="analysis/{run_id}/logs/cutadapt/{sample}.e",
     params:
         length="200",
         adapter="GTAC",
         input="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
+    message: "Execute cutadapt to trim the adapter sequences as well as filter out reads shorter than 200 bp."
     threads: 4
     resources:
         mem_gb=8
@@ -185,7 +195,7 @@ rule cutadapt:
         cutadapt -o {output.trimmed_fq} \
         --minimum-length {params.length} \
         -b {params.adapter} \
-        --revcomp {params.input} > {log.stdout} 2> {log.stderr}
+        --revcomp {params.input} 1> {log.stdout} 2> {log.stderr}
         """
 
 
@@ -199,11 +209,15 @@ rule pollux:
         fqgz="analysis/{run_id}/pollux/{sample}.fq.gz",
         tempfq=temp("analysis/{run_id}/pollux/{sample}.fq.corrected"),
         lowfq=temp("analysis/{run_id}/pollux/{sample}.fq.low"),
+    message: "Execute pollux to correct short indel errors on {input}"
+    log:
+        stderr = "analysis/{run_id}/logs/pollux/{sample}.e",
+        stdout = "analysis/{run_id}/logs/pollux/{sample}.o",
     params:
         outdir="analysis/{run_id}/pollux",
     shell:
         """
-        pollux -i {input} -o {params.outdir} -h "true"
+        pollux -i {input} -o {params.outdir} -h "true" 2> {log.stderr} 1> {log.stdout}
         
         gzip -c {output.tempfq} > {output.fqgz}
         """
@@ -220,10 +234,10 @@ rule bwa:
         outsam=temp("analysis/{run_id}/bwamem/{sample}.sam")
     params:
         prefix="{sample}",
-    # idx=config['ref_modi']['index'],
     log:
         stdout="logs/{run_id}/bwamem/{sample}.o",
         stderr="logs/{run_id}/bwamem/{sample}.e",
+    message: "bwa on {input}"
     threads: 4
     resources:
         mem_gb=20
@@ -247,11 +261,12 @@ rule sam2bam:
         outbai="analysis/{run_id}/bwamem/{sample}.bam.bai",
         idxstat="analysis/{run_id}/bwamem/{sample}.bam.idxstat",
     log:
-        stdout="logs/{run_id}/sam2bam/{sample}.o",
-        stderr="logs/{run_id}/sam2bam/{sample}.e",
+        stdout="analysis/{run_id}/logs/sam2bam/{sample}.o",
+        stderr="analysis/{run_id}/logs/sam2bam/{sample}.e",
     threads: 4
     resources:
         mem_gb=20
+    message: "Sam file into bam file - on {input}"
     container:
         config["samtools"],
     shell:
@@ -271,6 +286,7 @@ rule samtools_stat:
     threads: 2
     container:
         config["samtools"],
+    message: "Caculate alignment stats - on {input}"
     # "docker://quay.io/biocontainers/samtools:1.15.1--h1170115_0"
     shell:
         """
@@ -296,9 +312,7 @@ rule samtools:
     log:
         stdout="logs/{run_id}/samtools/{sample}.o",
         stderr="logs/{run_id}/samtools/{sample}.e",
-    # params:
-    #     temp_bam=temp("analysis/03.samtools/SA.only.bam"),
-    #     temp_id_list=temp("analysis/03.samtools/SA.id.list"),
+    message: "Filter out supplementary alignment reads and 2nd alignment reads in bam files - on {input.bam}"
     threads: 4
     resources:
         mem_gb=4
@@ -320,6 +334,7 @@ rule samtools:
         """
 
 
+# Not executed
 rule get_align_metrics:
     """
     Run picard to get alignment metrics
@@ -342,6 +357,8 @@ rule get_align_metrics:
         """
 
 
+# Not executed
+# this is an amplicon seq. most of reads have nearly the same genomic coordinate.
 rule mark_dups:
     """
     Run picard to mark duplicated reads
@@ -377,8 +394,7 @@ rule gatk_haplotype_caller:
     output:
         outvcf="analysis/{run_id}/haplotype_caller/{sample}.vcf",
     params:
-        #option="-Xmx4g -XX:ParallelGCThreads=1",
-        ref_fa=config["ref_modi"]["index"],
+        ref_fa=config["ref_modi"]["sequence"],
     # container:
     #     "docker://quay.io/biocontainers/gatk4:4.2.4.0--hdfd78af_0"
     shell:
@@ -396,7 +412,7 @@ rule gatk_mutect2:
     output:
         outvcf="analysis/{run_id}/mutect2/{sample}.vcf",
     params:
-        ref_fa=config["ref_modi"]["index"],
+        ref_fa=config["ref_modi"]["sequence"],
     # container:
     #     "docker://quay.io/biocontainers/gatk4:4.2.4.0--hdfd78af_0"
     shell:
@@ -425,8 +441,8 @@ rule multiqc:
     output:
         "analysis/{run_id}/multiqc/multiqc_report.html",
     log:
-        stdout="logs/{run_id}/multiqc/multiqc.o",
-        stderr="logs/{run_id}/multiqc/multiqc.e",
+        stdout="analysis/{run_id}/logs/multiqc/multiqc.o",
+        stderr="analysis/{run_id}/logs/multiqc/multiqc.e",
     params:
         outdir="analysis/{run_id}/multiqc/"
     threads: 4
@@ -437,10 +453,7 @@ rule multiqc:
     # "docker://quay.io/biocontainers/multiqc:1.12--pyhdfd78af_0"
     shell:
         """
-        multiqc -f {input} \
-        -o {params.outdir} \
-        -n multiqc_report.html \
-        --cl-config 'max_table_rows: 999999' \
+        multiqc -f {input}  -o {params.outdir} -n multiqc_report.html --cl-config 'max_table_rows: 999999' 2>{log.stdout}
         """
 
 
@@ -452,6 +465,9 @@ rule bcftools:
         inbam=rules.samtools.output.outbam
     output:
         outvcf="analysis/{run_id}/bcftools/{sample}.vcf"
+    log:
+        stdout="analysis/{run_id}/logs/bcftools/{sample}.o",
+        stderr="analysis/{run_id}/logs/bcftools/{sample}.e",
     params:
         ref_fa=config['ref_modi']['index'],
     container:
@@ -459,7 +475,7 @@ rule bcftools:
     # "docker://quay.io/biocontainers/bcftools:1.15.1--h0ea216a_0"
     shell:
         """
-        bcftools mpileup -f {params.ref_fa} {input.inbam} | bcftools call -mv -Ov -o {output.outvcf}
+        bcftools mpileup -f {params.ref_fa} {input.inbam} | bcftools call -mv -Ov -o {output.outvcf} 2> {log.stdout} 1> {log.stderr}
         """
 
 
@@ -471,6 +487,7 @@ rule freebayes:
         inbam=rules.samtools.output.outbam
     output:
         outvcf="analysis/{run_id}/freebayes/{sample}.vcf"
+
     params:
         ref_fa=config['ref_modi']['index'],
     container:
@@ -498,11 +515,15 @@ rule vcftools:
         minQ=10,
         minGQ=10,
         prefix="analysis/{run_id}/vcftools/{sample}.filt",
+    message: "Filter out variants having QUAL less than 10 and GQ less than 10. - on {input}"
+    log:
+        stdout="analysis/{run_id}/logs/vcftools/{sample}.o",
+        stderr="analysis/{run_id}/logs/vcftools/{sample}.e",
     container:
         config["vcftools"],
     shell:
         """
-        vcftools --vcf {input} --minQ {params.minQ} --recode --recode-INFO-all --out {params.prefix} --minGQ {params.minGQ}
+        vcftools --vcf {input} --minQ {params.minQ} --recode --recode-INFO-all --out {params.prefix} --minGQ {params.minGQ} 2> {log.stderr} 1> {log.stdout}
         """
 # diff between QUAL and GQ
 # see https://gatk.broadinstitute.org/hc/en-us/articles/360035531392-Difference-between-QUAL-and-GQ-annotations-in-germline-variant-calling
@@ -516,6 +537,7 @@ rule variant_report:
         rules.vcftools.output.out_filt_vcf
     output:
         outhtml="analysis/{run_id}/vcf_html/{sample}.vcf.html",
+    message: "Generate human friendly vcf reports on {input}"
     params:
         jar="/usr/local/bin/vcf2table.jar"
     shell:
@@ -531,11 +553,15 @@ rule deepvariant:
         outvcf="analysis/{run_id}/deepvariant/{sample}.vcf",
         outgvcf="analysis/{run_id}/deepvariant/{sample}.gvcf",
         outhtml="analysis/{run_id}/deepvariant/{sample}.visual_report.html"
+    message: "Run deepvariant on {input.inbam} - this tool is used for mainly germline variants calling"
+    log:
+        stdout="analysis/{run_id}/logs/deepvariant/{sample}.o",
+        stderr="analysis/{run_id}/logs/deepvariant/{sample}.e",
     params:
         ref_fa=config["ref_modi"]["sequence"],
         deepvariant_sif=config["deepvariant"],
         threads=4,
-        region="exon_4_5_6_7:1-725",
+        region="exon_4_to_10:1-1129",
         ref_fa_path=config["ref_modi"]["path"],
     shell:
         """
@@ -546,7 +572,7 @@ rule deepvariant:
          --regions "{params.region}" \
          --output_vcf={output.outvcf} \
          --output_gvcf={output.outgvcf} \
-         --num_shards={params.threads}
+         --num_shards={params.threads} 2> {log.stderr} 1> {log.stdout}
         """
 
 

@@ -14,15 +14,20 @@ barcode:
   "configs/barcodes.tsv"
 
 ref_modi:
-  # path/to/reference/gDNA.fasta
-  sequence: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
-  fai: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
-  path: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/"
-  # path/to/bwa/index/directory
+  ## path/to/reference/gDNA.fasta
+  # exon 4 to 7
+#  sequence: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa"
+#  fai: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/NM_005157_exons_4_to_7.fa.fai"
+#  path: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/hg19/"
+  sequence: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/exon_4_to_10/exon_4_to_10.flattened.fa"
+  fai: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/exon_4_to_10/exon_4_to_10.flattened.fa.fai"
+  path: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/exon_4_to_10/"
+  index: "/media/hd1/jkim/genome/ABL1_NM005157.4/assembly/ucsc/exon_4_to_10/exon_4_to_10.flattened.fa"
+  ## path/to/bwa/index/directory
   #  index:          "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
-  index: "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
+#  index: "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bwa/NM_005157_exons_4_to_7.fa"
   #  bowtie2_index:         "/media/hd1/jkim/genome/ABL1_NM005157.4/index/ucsc/hg19/bowtie2/NM_005157_exons_4_to_7"
-  # path/to/gtf/file/with/transcripts.gtf
+  ## path/to/gtf/file/with/transcripts.gtf
   annotation: "/media/hd1/jkim/genome/ABL1_NM005157.4/annotation/ucsc/refgene_hg19/refGene_3-1-2020.txt"
   star_index: "/media/hd1/jkim/genome/index/ucsc/hg19/star"
 
