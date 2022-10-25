@@ -1,3 +1,4 @@
+import glob
 from typing import List
 
 import pandas as pd
@@ -39,6 +40,10 @@ rule all:
         # expand("analysis/{run_id}/mutect2/{sample}.vcf",sample=get_sample_name(),run_id=config["run_id"]),
         expand("analysis/{run_id}/vcftools/{sample}.filt.recode.vcf",sample=get_sample_name(),run_id=config["run_id"]),
         expand("analysis/{run_id}/vcf_html/{sample}.vcf.html",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/fastq_scan/{sample}.summary.csv",sample=get_sample_name(),run_id=config["run_id"]),
+        expand("analysis/{run_id}/fastq_scan/done",run_id=config["run_id"]),
+
+    # expand("analysis/{run_id}/fastq_scan/fastq_stat.csv",run_id=config["run_id"]),
 
 
 rule bam2fastq:
@@ -99,16 +104,65 @@ rule demux:
     params:
         infq="analysis/{run_id}/bam2fastq/nomatch_rawlib.basecaller.fastq",
         outfq="analysis/{run_id}/demux/%.fq",
-        IDfq="analysis/{run_id}/demux/ID.fq"
+        IDfq="analysis/{run_id}/demux/ID.fq",
+        unmatched_fq = "analysis/{run_id}/demux/unmatched.fq",
     message: "Execute the demultiplex step by fastq-multx",
     log:
         stdout="analysis/{run_id}/logs/demux/{run_id}.o",
         stderr="analysis/{run_id}/logs/demux/{run_id}.o",
     shell:
         """
-        fastq-multx -m 0 -b -B {input.barcode_info} {params.infq} -o {params.outfq}
-        rm {params.IDfq} 2>{log.stderr} 1>{log.stdout}
+        fastq-multx -m 0 -b -B {input.barcode_info} {params.infq} -o {params.outfq} 2>{log.stderr} 1>{log.stdout}
+        rm {params.IDfq}
+        rm {params.unmatched_fq} 
         """
+
+
+rule fastq_scan:
+    """
+    Run fastq-scan (get fastq stat in CLI)
+    """
+    input:
+        rules.demux.output.touch
+    # lambda wildcards: expand("analysis/{run_id}/demux/{sample}.fq",run_id = config['run_id'], sample=get_sample_name()),
+    output:
+        out_csv="analysis/{run_id}/fastq_scan/{sample}.csv",
+        out_summ_csv="analysis/{run_id}/fastq_scan/{sample}.summary.csv",
+    message: "Execute fastq-scan for raw data - NOT trimmed data - on {input}",
+    log:
+        stdout="analysis/{run_id}/logs/fastq-scan/{sample}.o",
+        stderr="analysis/{run_id}/logs/fastq-scan/{sample}.e",
+    params:
+        in_fq="analysis/{run_id}/demux/{sample}.fq",run_id=config['run_id'],sample=get_sample_name(),
+    shell:
+        """
+        cat {params.in_fq} |  fastq-scan  | dasel_linux_386 -r json ".qc_stats" | dasel_linux_386 -r json -w csv > {output.out_csv}
+        
+        awk -F "," '{{print $2","$6","$3","$9","$13","$10}}' {output.out_csv} | sed 's/\.00*//g' > {output.out_summ_csv}
+        """
+
+
+rule merged_fastq_stat:
+    """
+    merge fastq-scan outputs
+    """
+    input:
+        # lambda wildcards: expand("analysis/{run_id}/fastq_scan/{sample}.summary.csv",run_id = config['run_id'], sample=get_sample_name()),
+        expand("analysis/{run_id}/fastq_scan/{sample}.summary.csv",run_id=config['run_id'],sample=get_sample_name()),
+    output:
+        touch("analysis/{run_id}/fastq_scan/done"),
+    params:
+        path="analysis/{run_id}/fastq_scan/",
+        summary_file="analysis/{run_id}/fastq_scan/fastq_stat.csv",
+    run:
+        csv_list = [i for i in glob.glob(params.path + "*summary.csv") if os.path.isfile(i)]
+        with open(params.summary_file,'w') as fout:
+            fout.write("sample,quality_score_25th,quality_score_median,quality_score_75th,read_length_25th,read_length_median,read_length_75th\n")
+            for csv_f in csv_list:
+                with open(csv_f) as fin:
+                    file_name = os.path.basename(csv_f).split(".")[0]
+                    fin.readline()
+                    fout.write(f"{file_name},{fin.readline()}")
 
 
 rule fastqc:
@@ -146,8 +200,8 @@ rule fastq_screen:
         html="analysis/{run_id}/fastq_screen/{sample}_screen.html",
         txt="analysis/{run_id}/fastq_screen/{sample}_screen.txt",
     log:
-        stderr = "analysis/{run_id}/logs/fastq_screen/{sample}.e",
-        stdout = "analysis/{run_id}/logs/fastq_screen/{sample}.o",
+        stderr="analysis/{run_id}/logs/fastq_screen/{sample}.e",
+        stdout="analysis/{run_id}/logs/fastq_screen/{sample}.o",
     params:
         fastq_screen=config["fastq_screen"]["path"],
         conf=config["fastq_screen"]["conf"],
@@ -168,6 +222,34 @@ rule fastq_screen:
         """
 
 
+#deprecated. very few reads left after filtering out low Q reads.
+rule fastp:
+    """
+    Run fastp - this is a quality trimming step.
+    """
+    input:
+        rules.demux.output.touch
+    output:
+        trimmed_fq="analysis/{run_id}/fastp/{sample}.fq",
+        outjson="analysis/{run_id}/fastp/{sample}.fastp.json",
+        outhtml="analysis/{run_id}/fastp/{sample}.fastp.html",
+    log:
+        stdout="logs/{run_id}/fastp/{sample}.o",
+        stderr="logs/{run_id}/fastp/{sample}.e",
+    threads: 4
+    resources:
+        mem_gb=8
+    params:
+        in_fq="analysis/{run_id}/demux/{sample}.fq",run_id=config["run_id"],sample=get_sample_name(),
+    container:
+        config["fastp"],
+    # "docker://quay.io/biocontainers/fastp:0.23.2--h79da9fb_0"
+    shell:
+        """
+        fastp -i {params.in_fq} -o {output.trimmed_fq} -l 200 --json {output.outjson} --html {output.outhtml} --thread 3 --adapter_sequence GTAC
+        """
+
+#deprecated
 rule cutadapt:
     """
     Run cutadapt to remove short reads/adapter - less than 200bp 
@@ -211,8 +293,8 @@ rule pollux:
         lowfq=temp("analysis/{run_id}/pollux/{sample}.fq.low"),
     message: "Execute pollux to correct short indel errors on {input}"
     log:
-        stderr = "analysis/{run_id}/logs/pollux/{sample}.e",
-        stdout = "analysis/{run_id}/logs/pollux/{sample}.o",
+        stderr="analysis/{run_id}/logs/pollux/{sample}.e",
+        stdout="analysis/{run_id}/logs/pollux/{sample}.o",
     params:
         outdir="analysis/{run_id}/pollux",
     shell:
@@ -248,9 +330,9 @@ rule bwa:
         """
         bwa mem -M -t {threads} -R '@RG\\tID:{params.prefix}\\tLB:{params.prefix}\\tPL:Ion\\tPM:Torren\\tSM:{params.prefix}' {input.idx} {input.fq} > {output.outsam}  
         """
+
 # -M: mark shorter split hits as secondary
 # This is optional for Picard compatibility as MarkDuplicates can directly process BWA's alignment, whether or not the alignment marks secondary hits. However, if we want MergeBamAlignment to reassign proper pair alignments, to generate data comparable to that produced by the Broad Genomics Platform, then we must mark secondary alignments [GATK discussion forum].
-
 
 
 rule sam2bam:
@@ -495,7 +577,7 @@ rule freebayes:
     # "docker://quay.io/biocontainers/freebayes:1.3.6--hb089aa1_0"
     shell:
         """
-        freebayes -f {params.ref_fa} -C 10 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --min-coverage 6 --read-snp-limit 10 {input.inbam} > {output.outvcf}
+        freebayes -f {params.ref_fa} -C 50 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --read-snp-limit 10 {input.inbam} > {output.outvcf}
         """
 
 #freebayes -f {params.ref_fa} -C 10 --min-mapping-quality 4 --read-max-mismatch-fraction 1 --min-coverage 6 --read-snp-limit 10 {input.inbam} > {output.outvcf}
@@ -525,6 +607,7 @@ rule vcftools:
         """
         vcftools --vcf {input} --minQ {params.minQ} --recode --recode-INFO-all --out {params.prefix} --minGQ {params.minGQ} 2> {log.stderr} 1> {log.stdout}
         """
+
 # diff between QUAL and GQ
 # see https://gatk.broadinstitute.org/hc/en-us/articles/360035531392-Difference-between-QUAL-and-GQ-annotations-in-germline-variant-calling
 
@@ -612,29 +695,7 @@ rule plot_coverage:
 
 
 #deprecated. after filtering, many reads filtered out.
-rule fastp:
-    """
-    Run fastp - this is a quality trimming step.
-    """
-    input:
-        "00.rawdata/{sample}.fq"
-    output:
-        trimmed_fq_gz="analysis/{run_id}/fastp/{sample}.fq.gz",
-        outjson="analysis/{run_id}/fastp/{sample}.fastp.json",
-        outhtml="analysis/{run_id}/fastp/{sample}.fastp.html",
-    log:
-        stdout="logs/{run_id}/fastp/{sample}.o",
-        stderr="logs/{run_id}/fastp/{sample}.e",
-    threads: 4
-    resources:
-        mem_gb=8
-    container:
-        config["fastp"],
-    # "docker://quay.io/biocontainers/fastp:0.23.2--h79da9fb_0"
-    shell:
-        """
-        fastp -i {input} -o {output.trimmed_fq_gz} --json {output.outjson} --html {output.outhtml} --thread 3 --adapter_sequence GTAC
-        """
+
 
 
 rule STAR:
