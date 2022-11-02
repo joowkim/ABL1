@@ -280,7 +280,7 @@ rule cutadapt:
         --revcomp {params.input} 1> {log.stdout} 2> {log.stderr}
         """
 
-
+# no longer needed.
 rule pollux:
     """
     Run pollux to correct homopolymer errors.
@@ -310,7 +310,7 @@ rule bwa:
     Run bwa-mem
     """
     input:
-        fq=rules.pollux.output.fqgz,
+        fq=rules.cutadapt.output.trimmed_fq,
         idx=config['ref_modi']['index'],
     output:
         outsam=temp("analysis/{run_id}/bwamem/{sample}.sam")
