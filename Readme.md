@@ -28,10 +28,10 @@ Identify variants in exon 4 to 10 of ABL1.
   
 |row|sample_id     |barcode|
 |---|--------------|-------|
-|1  |6806006070_DL |420    |
-|2  |1_per_minor_qc|421    |
-|3  |690702015_DO  |422    |
-|4  |1_per_major_qc|423    |
+|1  |S1            |421    |
+|2  |S2            |421    |
+|3  |S3            |422    |
+|4  |S4            |423    |
 
 - go to `config` folder and update `configs.yaml`. You may want to change the following configuration.
 
