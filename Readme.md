@@ -21,7 +21,7 @@ Identify variants in exon 4 to 10 of ABL1.
 ## Configuration
 
 - go to `ubam` directory and create a `run-id` directory
-  - e.g. `ubam` -> `S5-0007-496`
+  - e.g. `ubam` -> `test`
 - copy `unmatched bam` in the run folder
 - create a sample meta info.csv in the run folder
   - e.g.
@@ -37,7 +37,7 @@ Identify variants in exon 4 to 10 of ABL1.
 
 ```
 run_id:
-  "S5-0007-496"
+  "test"
 
 ubam:
   "nomatch_rawlib.basecaller.bam"
